@@ -98,7 +98,8 @@ public class TalkNpcAction
                 break;
             case NpcWindow.VaultStorage:
                 player.Account!.Vault ??= player.PersistenceContext.CreateNew<ItemStorage>();
-                player.Vault = new Storage(InventoryConstants.WarehouseSize, player.Account.Vault);
+                var warehouseSize = player.Account.IsVaultExtended ? InventoryConstants.WarehouseSize * 2 : InventoryConstants.WarehouseSize;
+                player.Vault = new Storage(warehouseSize, player.Account.Vault);
                 await player.InvokeViewPlugInAsync<IShowVaultPlugIn>(p => p.ShowVaultAsync()).ConfigureAwait(false);
                 break;
             case NpcWindow.GuildMaster:
@@ -116,6 +117,18 @@ public class TalkNpcAction
             case NpcWindow.LegacyQuest:
                 await this.ShowLegacyQuestDialogAsync(player).ConfigureAwait(false);
                 break;
+            case NpcWindow.DoorkeeperTitusDuelWatch:
+                await player.InvokeViewPlugInAsync<IOpenNpcWindowPlugIn>(p => p.OpenNpcWindowAsync(npcStats.NpcWindow)).ConfigureAwait(false);
+                _ = Task.Run(async () =>
+                {
+                    while (player.IsActive() && player.OpenedNpc?.Definition.NpcWindow == NpcWindow.DoorkeeperTitusDuelWatch)
+                    {
+                        await player.GameContext.DuelRoomManager.ShowRoomsAsync(player).ConfigureAwait(false);
+                        await Task.Delay(5000).ConfigureAwait(false);
+                    }
+                });
+
+                break;
             default:
                 await player.InvokeViewPlugInAsync<IOpenNpcWindowPlugIn>(p => p.OpenNpcWindowAsync(npcStats.NpcWindow)).ConfigureAwait(false);
                 break;
@@ -125,7 +138,7 @@ public class TalkNpcAction
     private async ValueTask ShowLegacyQuestDialogAsync(Player player)
     {
         var quests = player.OpenedNpc!.Definition.Quests
-            .Where(q => q.QualifiedCharacter is null || q.QualifiedCharacter == player.SelectedCharacter!.CharacterClass);
+            .Where(q => q.QualifiedCharacter is null || Equals(q.QualifiedCharacter, player.SelectedCharacter!.CharacterClass));
 
         if (!quests.Any())
         {

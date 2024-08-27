@@ -89,11 +89,23 @@ public static class MapsterConfigurator
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.ChatServerEndpoint, MUnique.OpenMU.DataModel.Configuration.ChatServerEndpoint>()
             .Include<ChatServerEndpoint, BasicModel.ChatServerEndpoint>();
 
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.ConfigurationUpdate, MUnique.OpenMU.DataModel.Configuration.ConfigurationUpdate>()
+            .Include<ConfigurationUpdate, BasicModel.ConfigurationUpdate>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.ConfigurationUpdateState, MUnique.OpenMU.DataModel.Configuration.ConfigurationUpdateState>()
+            .Include<ConfigurationUpdateState, BasicModel.ConfigurationUpdateState>();
+
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.ConnectServerDefinition, MUnique.OpenMU.DataModel.Configuration.ConnectServerDefinition>()
             .Include<ConnectServerDefinition, BasicModel.ConnectServerDefinition>();
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.DropItemGroup, MUnique.OpenMU.DataModel.Configuration.DropItemGroup>()
             .Include<DropItemGroup, BasicModel.DropItemGroup>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.DuelArea, MUnique.OpenMU.DataModel.Configuration.DuelArea>()
+            .Include<DuelArea, BasicModel.DuelArea>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.DuelConfiguration, MUnique.OpenMU.DataModel.Configuration.DuelConfiguration>()
+            .Include<DuelConfiguration, BasicModel.DuelConfiguration>();
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.EnterGate, MUnique.OpenMU.DataModel.Configuration.EnterGate>()
             .Include<EnterGate, BasicModel.EnterGate>();
@@ -178,6 +190,9 @@ public static class MapsterConfigurator
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.StatAttributeDefinition, MUnique.OpenMU.DataModel.Configuration.StatAttributeDefinition>()
             .Include<StatAttributeDefinition, BasicModel.StatAttributeDefinition>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.SystemConfiguration, MUnique.OpenMU.DataModel.Configuration.SystemConfiguration>()
+            .Include<SystemConfiguration, BasicModel.SystemConfiguration>();
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Configuration.WarpInfo, MUnique.OpenMU.DataModel.Configuration.WarpInfo>()
             .Include<WarpInfo, BasicModel.WarpInfo>();

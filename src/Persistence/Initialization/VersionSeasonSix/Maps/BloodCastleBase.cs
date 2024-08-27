@@ -32,7 +32,7 @@ internal abstract class BloodCastleBase : BaseMapInitializer
     }
 
     /// <inheritdoc/>
-    protected override byte SafezoneMapNumber => Lorencia.Number;
+    protected override byte SafezoneMapNumber => Devias.Number;
 
     /// <inheritdoc />
     protected override string MapName => $"Blood Castle {this.CastleLevel}";
@@ -45,9 +45,9 @@ internal abstract class BloodCastleBase : BaseMapInitializer
     /// <inheritdoc/>
     protected override IEnumerable<MonsterSpawnArea> CreateNpcSpawns()
     {
-        var castleDoor = this.CreateMonsterSpawn(this.NpcDictionary[131], 014, 075, Direction.SouthWest, SpawnTrigger.OnceAtEventStart); // Castle Gate
+        var castleDoor = this.CreateMonsterSpawn(1, this.NpcDictionary[131], 014, 075, Direction.SouthWest, SpawnTrigger.OnceAtEventStart); // Castle Gate
         castleDoor.MaximumHealthOverride = CastleDoorHealthPerLevel[this.CastleLevel];
         yield return castleDoor;
-        yield return this.CreateMonsterSpawn(this.NpcDictionary[232], 010, 009, Direction.SouthWest, SpawnTrigger.Automatic); // Archangel
+        yield return this.CreateMonsterSpawn(2, this.NpcDictionary[232], 010, 009, Direction.SouthWest, SpawnTrigger.Automatic); // Archangel
     }
 }

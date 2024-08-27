@@ -42,7 +42,7 @@ internal class Program
         var loggerFactory = new LoggerFactory().AddSerilog(logger);
         _logger = loggerFactory.CreateLogger<Program>();
 
-        var addressResolver = IpAddressResolverFactory.DetermineIpResolver(args, loggerFactory);
+        var addressResolver = IpAddressResolverFactory.CreateIpResolver(args, null, loggerFactory);
         var settings = new Settings("ChatServer.cfg");
         var serviceContainer = new ServiceContainer();
         serviceContainer.AddService(typeof(ILoggerFactory), loggerFactory);
@@ -56,7 +56,7 @@ internal class Program
             // To make the chat server use our configured encryption key, we need to trick a bit. We add an endpoint with a special client version which is defined in the plugin.
             var configuration = new ChatServerSettings();
             configuration.Endpoints.Add(new ChatServerEndpoint { ClientVersion = ConfigurableNetworkEncryptionPlugIn.Version, NetworkPort = chatServerListenerPort });
-            var pluginManager = new PlugInManager(null, loggerFactory, serviceContainer);
+            var pluginManager = new PlugInManager(null, loggerFactory, serviceContainer, null);
             pluginManager.DiscoverAndRegisterPlugInsOf<INetworkEncryptionFactoryPlugIn>();
             var chatServer = new ChatServer(addressResolver, loggerFactory, pluginManager);
             chatServer.Initialize(configuration);

@@ -5,12 +5,13 @@
 namespace MUnique.OpenMU.GameLogic.PlayerActions.Items;
 
 using System.ComponentModel;
+using MUnique.OpenMU.DataModel.Configuration.Items;
 using MUnique.OpenMU.GameLogic.PlugIns;
 using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
 using MUnique.OpenMU.GameLogic.Views.Trade;
 using MUnique.OpenMU.Interfaces;
-using static OpenMU.GameLogic.InventoryConstants;
+using static MUnique.OpenMU.DataModel.InventoryConstants;
 
 /// <summary>
 /// Action to move an item between <see cref="Storages"/> or the same storage.
@@ -79,10 +80,17 @@ public class MoveItemAction
                 break;
         }
 
-        if (movement != Movement.None
+        if (movement is not Movement.None
             && player.GameContext.PlugInManager.GetPlugInPoint<PlugIns.IItemMovedPlugIn>() is { } itemMovedPlugIn)
         {
             await itemMovedPlugIn.ItemMovedAsync(player, item).ConfigureAwait(false);
+        }
+
+        if (movement is not (Movement.None or Movement.Normal)
+            && toItemStorage?.GetItem(toSlot) is { } target
+            && player.GameContext.PlugInManager.GetPlugInPoint<PlugIns.IItemStackedPlugIn>() is { } itemStackedPlugIn)
+        {
+            await itemStackedPlugIn.ItemStackedAsync(player, item, target).ConfigureAwait(false);
         }
     }
 
@@ -134,6 +142,17 @@ public class MoveItemAction
         }
     }
 
+    /// <summary>
+    /// Gets the storage information.
+    /// </summary>
+    /// <param name="player">The player.</param>
+    /// <param name="storageType">Type of the storage.</param>
+    /// <returns>The information about the requested storage for the specified player.</returns>
+    /// <remarks>
+    /// For extended inventories and vaults, this is simplified!
+    /// The client would prevent storing an item across boundaries, the
+    /// server wouldn't.
+    /// </remarks>
     private StorageInfo? GetStorageInfo(Player player, Storages storageType)
     {
         StorageInfo? result;
@@ -142,9 +161,9 @@ public class MoveItemAction
             case Storages.Inventory when player.Inventory is not null:
                 result = new StorageInfo(
                     player.Inventory,
-                    InventoryRows,
+                    (byte)(InventoryRows + (player.SelectedCharacter!.InventoryExtensions * RowsOfOneExtension)),
                     EquippableSlotsCount,
-                    (byte)(EquippableSlotsCount + GetInventorySize(player)));
+                    (byte)(EquippableSlotsCount + player.GetInventorySize()));
                 break;
             case Storages.PersonalStore when player.ShopStorage is not null:
                 result = new StorageInfo(
@@ -154,7 +173,9 @@ public class MoveItemAction
                     (byte)(FirstStoreItemSlotIndex + StoreSize));
                 break;
             case Storages.Vault when player.Vault is not null:
-                result = new StorageInfo(player.Vault, WarehouseRows, 0, WarehouseSize);
+                var warehouseSize = player.Account!.IsVaultExtended ? WarehouseSize * 2 : WarehouseSize;
+                var warehouseRows = (byte)(WarehouseRows * 2);
+                result = new StorageInfo(player.Vault, warehouseRows, 0, (byte)warehouseSize);
                 break;
             case Storages.Trade:
             case Storages.ChaosMachine:
@@ -211,14 +232,31 @@ public class MoveItemAction
                 return Movement.None;
             }
 
+            if (player.CurrentMiniGame is { } miniGame
+                && !miniGame.IsItemAllowedToEquip(item))
+            {
+                await player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync("You can't equip this item during the event.", MessageType.BlueNormal)).ConfigureAwait(false);
+                return Movement.None;
+            }
+
             if (itemDefinition.ItemSlot.ItemSlots.Contains(toSlot) &&
                 player.CompliesRequirements(item))
             {
-                if (itemDefinition.ItemSlot.ItemSlots.Contains(RightHandSlot)
-                    && itemDefinition.ItemSlot.ItemSlots.Contains(LeftHandSlot)
-                    && toSlot == RightHandSlot
-                    && storage.GetItem(LeftHandSlot)?.Definition!.Width >= 2)
+                static bool IsOneHandedOrShield(ItemDefinition definition) =>
+                    (definition.ItemSlot!.ItemSlots.Contains(RightHandSlot) && definition.ItemSlot.ItemSlots.Contains(LeftHandSlot)) || definition.Group == 6;
+
+                var rightHandItemDefinition = storage.GetItem(RightHandSlot)?.Definition!;
+
+                if ((toSlot == LeftHandSlot
+                    && itemDefinition.Width >= 2
+                    && rightHandItemDefinition != null
+                    && !rightHandItemDefinition.IsAmmunition)
+                    || (toSlot == RightHandSlot
+                    && IsOneHandedOrShield(itemDefinition)
+                    && storage.GetItem(LeftHandSlot)?.Definition!.Width >= 2))
                 {
+                    // Attempting to equip a two-handed item to the left hand slot when a shield is in the right hand slot,
+                    // or trying to equip a one-handed weapon or shield to the right hand slot when a two-handed item is in the left hand slot.
                     return Movement.None;
                 }
 
@@ -303,6 +341,17 @@ public class MoveItemAction
     {
         int rowIndex = (toSlot - toStorage.StartIndex) / RowSize;
         int columnIndex = (toSlot - toStorage.StartIndex) % RowSize;
+
+        if (rowIndex + item.Definition!.Height > usedSlots.GetLength(0))
+        {
+            return true;
+        }
+
+        if (columnIndex + item.Definition.Width > usedSlots.GetLength(1))
+        {
+            return true;
+        }
+
         for (int r = rowIndex; r < rowIndex + item.Definition!.Height; r++)
         {
             for (int c = columnIndex; c < columnIndex + item.Definition.Width; c++)

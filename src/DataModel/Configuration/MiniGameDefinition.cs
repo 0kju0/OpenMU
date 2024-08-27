@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.DataModel.Configuration;
 
+using MUnique.OpenMU.Annotations;
 using MUnique.OpenMU.DataModel.Configuration.Items;
 
 /// <summary>
@@ -12,7 +13,8 @@ using MUnique.OpenMU.DataModel.Configuration.Items;
 /// <remarks>
 /// Each game level of a mini game has its own <see cref="MiniGameDefinition"/>.
 /// </remarks>
-public class MiniGameDefinition
+[Cloneable]
+public partial class MiniGameDefinition
 {
     /// <summary>
     /// Gets or sets the type of the mini game.
@@ -93,6 +95,26 @@ public class MiniGameDefinition
     /// Gets or sets the ticket item level which is required to enter the event.
     /// </summary>
     public int TicketItemLevel { get; set; }
+
+    /// <summary>
+    /// Gets or sets the entrance fee which is deducted from the players inventory
+    /// when entering the mini game event.
+    /// </summary>
+    public int EntranceFee { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether player killers are allowed to
+    /// enter the mini game.
+    /// </summary>
+    /// <value>
+    ///   <c>true</c> if player killers are allowed to enter; otherwise, <c>false</c>.
+    /// </value>
+    public bool ArePlayerKillersAllowedToEnter { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to allow being in a party during the event.
+    /// </summary>
+    public bool AllowParty { get; set; }
 
     /// <summary>
     /// Gets or sets the entrance gate to the mini game map.

@@ -4,7 +4,9 @@
 
 namespace MUnique.OpenMU.GameLogic;
 
+using System.Collections.Concurrent;
 using MUnique.OpenMU.GameLogic.MiniGames;
+using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.Interfaces;
 using MUnique.OpenMU.Pathfinding;
 using MUnique.OpenMU.Persistence;
@@ -31,7 +33,7 @@ public interface IGameContext
     float ExperienceRate { get; }
 
     /// <summary>
-    /// Gets the repository manager. Used to retrieve data, e.g. from a database.
+    /// Gets the repository provider. Used to retrieve data, e.g. from a database.
     /// </summary>
     IPersistenceContextProvider PersistenceContextProvider { get; }
 
@@ -44,6 +46,21 @@ public interface IGameContext
     /// Gets the configuration.
     /// </summary>
     GameConfiguration Configuration { get; }
+
+    /// <summary>
+    /// Gets the experience table. Index is the player level, value the needed experience to reach that level.
+    /// </summary>
+    long[] ExperienceTable { get; }
+
+    /// <summary>
+    /// Gets the master experience table. Index is the player level, value the needed experience to reach that level.
+    /// </summary>
+    long[] MasterExperienceTable { get; }
+
+    /// <summary>
+    /// Gets the configuration change mediator.
+    /// </summary>
+    IConfigurationChangeMediator ConfigurationChangeMediator { get; }
 
     /// <summary>
     /// Gets the plug in manager.
@@ -76,9 +93,24 @@ public interface IGameContext
     IObjectPool<PathFinder> PathFinderPool { get; }
 
     /// <summary>
+    /// Gets the duel room manager.
+    /// </summary>
+    DuelRoomManager DuelRoomManager { get; }
+
+    /// <summary>
+    /// Gets the state of the active self defenses.
+    /// </summary>
+    ConcurrentDictionary<(Player Attacker, Player Defender), DateTime> SelfDefenseState { get; }
+
+    /// <summary>
     /// Gets the initialized maps which are hosted on this context.
     /// </summary>
-    IEnumerable<GameMap> Maps { get; }
+    ValueTask<IEnumerable<GameMap>> GetMapsAsync();
+
+    /// <summary>
+    /// Gets the players.
+    /// </summary>
+    ValueTask<IList<Player>> GetPlayersAsync();
 
     /// <summary>
     /// Adds the player to the game.
@@ -110,7 +142,7 @@ public interface IGameContext
     /// Removes the mini game instance from the context.
     /// </summary>
     /// <param name="miniGameContext">The context of the mini game.</param>
-    void RemoveMiniGame(MiniGameContext miniGameContext);
+    ValueTask RemoveMiniGameAsync(MiniGameContext miniGameContext);
 
     /// <summary>
     /// Gets the player object by character name.
@@ -125,6 +157,14 @@ public interface IGameContext
     /// <param name="message">The message.</param>
     /// <param name="messageType">Type of the message.</param>
     ValueTask SendGlobalMessageAsync(string message, MessageType messageType);
+
+    /// <summary>
+    /// Sends a global chat message to all players of the game with the specified message type.
+    /// </summary>
+    /// <param name="sender">The sender.</param>
+    /// <param name="message">The message.</param>
+    /// <param name="messageType">Type of the message.</param>
+    ValueTask SendGlobalChatMessageAsync(string sender, string message, ChatMessageType messageType);
 
     /// <summary>
     /// Sends a golden global notification to all players of the game.

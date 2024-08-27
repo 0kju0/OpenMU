@@ -4,6 +4,8 @@
 
 namespace MUnique.OpenMU.DataModel.Configuration;
 
+using MUnique.OpenMU.Annotations;
+
 /// <summary>
 /// Defines the trigger when a monster spawns.
 /// </summary>
@@ -42,12 +44,30 @@ public enum SpawnTrigger
     /// For example, at devil square there is a wave of bosses, which spawn only once.
     /// </remarks>
     OnceAtWaveStart,
+
+    /// <summary>
+    /// The monster spawns manually controlled by the code of an event.
+    /// </summary>
+    /// <remarks>
+    /// For example chaos castle enemies, because their number is not known beforehand.
+    /// </remarks>
+    ManuallyForEvent,
+
+    /// <summary>
+    /// The object is wandering between maps. It spawns just at one spawn area
+    /// at the same time.
+    /// </summary>
+    /// <remarks>
+    /// Used for wandering merchants.
+    /// </remarks>
+    Wandering,
 }
 
 /// <summary>
 /// Defines an monster spawn area.
 /// </summary>
-public class MonsterSpawnArea
+[Cloneable]
+public partial class MonsterSpawnArea
 {
     /// <summary>
     /// Gets or sets the monster definition.

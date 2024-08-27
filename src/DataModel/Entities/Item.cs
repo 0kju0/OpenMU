@@ -4,12 +4,14 @@
 
 namespace MUnique.OpenMU.DataModel.Entities;
 
+using MUnique.OpenMU.Annotations;
 using MUnique.OpenMU.DataModel.Configuration.Items;
 
 /// <summary>
 /// The item.
 /// </summary>
-public class Item
+[Cloneable]
+public partial class Item
 {
     /// <summary>
     /// Gets or sets the item slot in the <see cref="ItemStorage"/>.
@@ -112,15 +114,24 @@ public class Item
             stringBuilder.Append(ancientSet.Name).Append(" ");
         }
 
-        stringBuilder.Append(this.Definition?.Name);
+        var itemName = this.Definition?.GetNameForLevel(this.Level);
+
+        stringBuilder.Append(itemName);
         if (this.Level > 0)
         {
             stringBuilder.Append("+").Append(this.Level);
         }
 
-        foreach (var option in this.ItemOptions.OrderBy(o => o.ItemOption?.OptionType == ItemOptionTypes.Option))
+        foreach (var option in this.ItemOptions
+                     .Where(o => o.ItemOption?.OptionType != ItemOptionTypes.Luck)
+                     .OrderBy(o => o.ItemOption?.OptionType == ItemOptionTypes.Option))
         {
-            stringBuilder.Append("+").Append(option.ItemOption?.PowerUpDefinition);
+            var levelOption = option.ItemOption?.LevelDependentOptions.FirstOrDefault(o => o.Level == (option.ItemOption.LevelType == LevelType.ItemLevel ? this.Level : option.Level));
+            var powerUpDefinition = levelOption?.PowerUpDefinition ?? option.ItemOption?.PowerUpDefinition;
+            if (powerUpDefinition is not null)
+            {
+                stringBuilder.Append("+").Append(powerUpDefinition);
+            }
         }
 
         if (this.HasSkill)

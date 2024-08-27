@@ -2,24 +2,34 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using Nito.AsyncEx.Synchronous;
-
 namespace MUnique.OpenMU.Persistence.InMemory;
+
+using System.Collections;
+using System.Threading;
+using Nito.AsyncEx.Synchronous;
+using Nito.Disposables;
 
 /// <summary>
 /// An in-memory context which get it's data from the repositories of the <see cref="InMemoryPersistenceContextProvider"/>.
 /// </summary>
-/// <seealso cref="MUnique.OpenMU.Persistence.IContext" />
 public class InMemoryContext : IContext
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="InMemoryContext"/> class.
     /// </summary>
-    /// <param name="manager">The manager which holds the memory repositories.</param>
-    public InMemoryContext(InMemoryRepositoryManager manager)
+    /// <param name="provider">The manager which holds the memory repositories.</param>
+    public InMemoryContext(InMemoryRepositoryProvider provider)
     {
-        this.Manager = manager;
+        this.Provider = provider;
     }
+
+    /// <summary>
+    /// Occurs when changes have been "saved".
+    /// </summary>
+    public event EventHandler? SavedChanges;
+
+    /// <inheritdoc />
+    public bool HasChanges => false;
 
     /// <summary>
     /// Gets the manager which holds the memory repositories.
@@ -27,24 +37,44 @@ public class InMemoryContext : IContext
     /// <value>
     /// The manager.
     /// </value>
-    protected InMemoryRepositoryManager Manager { get; }
+    protected InMemoryRepositoryProvider Provider { get; }
 
     /// <inheritdoc/>
     public void Dispose()
     {
-        // nothing to do here
+        this.SavedChanges = null;
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Saves the changes of the context.
+    /// </summary>
+    /// <returns><c>True</c>, if the saving was successful; <c>false</c>, otherwise.</returns>
     public bool SaveChanges()
     {
+        foreach (var repository in this.Provider.MemoryRepositories)
+        {
+            repository.OnSaveChanges();
+        }
+
         return true;
     }
 
     /// <inheritdoc/>
-    public ValueTask<bool> SaveChangesAsync()
+    public async ValueTask<bool> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return ValueTask.FromResult(true);
+        var result = this.SaveChanges();
+        if (result)
+        {
+            this.SavedChanges?.Invoke(this, EventArgs.Empty);
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc />
+    public IDisposable SuspendChangeNotifications()
+    {
+        return new Disposable(() => { });
     }
 
     /// <inheritdoc/>
@@ -52,7 +82,7 @@ public class InMemoryContext : IContext
     {
         if (item is IIdentifiable identifiable)
         {
-            var repository = this.Manager.GetRepository(item.GetType()) as IMemoryRepository;
+            var repository = this.Provider.GetRepository(item.GetType()) as IMemoryRepository;
             repository?.RemoveAsync(identifiable.Id).AsTask().WaitWithoutException();
         }
 
@@ -64,7 +94,7 @@ public class InMemoryContext : IContext
     {
         if (item is IIdentifiable identifiable)
         {
-            var repository = this.Manager.GetRepository(item.GetType()) as IMemoryRepository;
+            var repository = this.Provider.GetRepository(item.GetType()) as IMemoryRepository;
             repository?.Add(identifiable.Id, item);
         }
     }
@@ -78,10 +108,28 @@ public class InMemoryContext : IContext
         {
             if (identifiable.Id == Guid.Empty)
             {
-                identifiable.Id = Guid.NewGuid();
+                identifiable.Id = GuidV7.NewGuid();
             }
 
-            var repository = this.Manager.GetRepository<T>() as IMemoryRepository;
+            var repository = this.Provider.GetRepository<T>() as IMemoryRepository;
+            repository?.Add(identifiable.Id, newObject);
+        }
+
+        return newObject;
+    }
+
+    /// <inheritdoc/>
+    public object CreateNew(Type type, params object?[] args)
+    {
+        var newObject = typeof(Persistence.BasicModel.GameConfiguration).Assembly.CreateNew(type, args);
+        if (newObject is IIdentifiable identifiable)
+        {
+            if (identifiable.Id == Guid.Empty)
+            {
+                identifiable.Id = GuidV7.NewGuid();
+            }
+
+            var repository = this.Provider.GetRepository(type) as IMemoryRepository;
             repository?.Add(identifiable.Id, newObject);
         }
 
@@ -92,26 +140,38 @@ public class InMemoryContext : IContext
     public ValueTask<bool> DeleteAsync<T>(T obj)
         where T : class
     {
-        return this.Manager.GetRepository<T>().DeleteAsync(obj);
+        return this.Provider.GetRepository<T>().DeleteAsync(obj);
     }
 
     /// <inheritdoc/>
     public async Task<T?> GetByIdAsync<T>(Guid id)
         where T : class
     {
-        return await this.Manager.GetRepository<T>().GetByIdAsync(id).ConfigureAwait(false);
+        return await this.Provider.GetRepository<T>().GetByIdAsync(id).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public async Task<object?> GetByIdAsync(Guid id, Type type)
     {
-        return await this.Manager.GetRepository(type).GetByIdAsync(id).ConfigureAwait(false);
+        return await this.Provider.GetRepository(type).GetByIdAsync(id).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public ValueTask<IEnumerable<T>> GetAsync<T>()
         where T : class
     {
-        return this.Manager.GetRepository<T>().GetAllAsync();
+        return this.Provider.GetRepository<T>().GetAllAsync();
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<IEnumerable> GetAsync(Type type)
+    {
+        return this.Provider.GetRepository(type).GetAllAsync();
+    }
+
+    /// <inheritdoc/>
+    public bool IsSupporting(Type type)
+    {
+        return true;
     }
 }

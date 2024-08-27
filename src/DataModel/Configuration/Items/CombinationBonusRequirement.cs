@@ -4,10 +4,13 @@
 
 namespace MUnique.OpenMU.DataModel.Configuration.Items;
 
+using MUnique.OpenMU.Annotations;
+
 /// <summary>
 /// Defines a requirement of existing item options on the equipped items of a character.
 /// </summary>
-public class CombinationBonusRequirement
+[Cloneable]
+public partial class CombinationBonusRequirement
 {
     /// <summary>
     /// Gets or sets the required <see cref="ItemOption.OptionType"/>.
@@ -23,4 +26,10 @@ public class CombinationBonusRequirement
     /// Gets or sets the minimum count of options in order to fulfill the requirement.
     /// </summary>
     public int MinimumCount { get; set; } = 1;
+
+    /// <inheritdoc />
+    public override string ToString()
+    {
+        return $"{OptionType}: SubOption Type {this.SubOptionType}, Min. Count {this.MinimumCount}";
+    }
 }

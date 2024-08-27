@@ -22,6 +22,11 @@ public record DeathInformation(ushort KillerId, string KillerName, HitInfo Final
 public interface IAttackable : IIdentifiable, ILocateable
 {
     /// <summary>
+    /// Occurs when this instance died.
+    /// </summary>
+    event EventHandler<DeathInformation>? Died;
+
+    /// <summary>
     /// Gets the attributes.
     /// </summary>
     IAttributeSystem Attributes { get; }
@@ -59,7 +64,8 @@ public interface IAttackable : IIdentifiable, ILocateable
     /// <param name="attacker">The attacker.</param>
     /// <param name="skill">The skill.</param>
     /// <param name="isCombo">If set to <c>true</c>, the attacker did a combination of skills.</param>
-    ValueTask AttackByAsync(IAttacker attacker, SkillEntry? skill, bool isCombo);
+    /// <param name="damageFactor">The damage factor.</param>
+    ValueTask AttackByAsync(IAttacker attacker, SkillEntry? skill, bool isCombo, double damageFactor = 1.0);
 
     /// <summary>
     /// Reflects the damage which was done previously with <see cref="AttackByAsync" /> or even <see cref="ReflectDamageAsync" /> to the <paramref name="reflector" />.
@@ -74,4 +80,9 @@ public interface IAttackable : IIdentifiable, ILocateable
     /// <param name="initialAttacker">The initial attacker.</param>
     /// <param name="damage">The damage.</param>
     ValueTask ApplyPoisonDamageAsync(IAttacker initialAttacker, uint damage);
+
+    /// <summary>
+    /// Kills the attackable instantly.
+    /// </summary>
+    ValueTask KillInstantlyAsync();
 }

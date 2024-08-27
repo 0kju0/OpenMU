@@ -845,6 +845,12 @@ public class Stats
     public static AttributeDefinition TransformationSkin { get; } = new (new Guid("E5B886B0-B1A6-4EA2-8EF9-08D27AADB7C3"), "Character to Monster transformation", "This value is > 0, when the character got transformed into a monster, by wearing a transformation ring. The value specifies the type of monster (skin).");
 
     /// <summary>
+    /// Gets the <see cref="IsInvisible"/> attribute which defines if the player is invisible.
+    /// This value is > 0, when the character is either a game master which used the hide-command, or when a player is spectating a duel.
+    /// </summary>
+    public static AttributeDefinition IsInvisible { get; } = new(new Guid("8B0721BC-7AC6-4677-B488-ED4319AE9A56"), "Is invisible", "This value is > 0, when the character is either a game master which used the hide-command, or when a player is spectating a duel.");
+
+    /// <summary>
     /// Gets the attribute for a strength requirement reduction. Items with this option require less strength, according to the option's value.
     /// </summary>
     /// <remarks>
@@ -893,6 +899,16 @@ public class Stats
     /// Gets the attribute for the nova stage damage which depends on the duration of the skill.
     /// </summary>
     public static AttributeDefinition NovaStageDamage { get; } = new(new Guid("9185A46A-4C56-4FF1-A0D2-C0CD58CB17FB"), "Nova Stage Damage", "The currently reached nova stage bonus which depends on the duration of the skill.");
+
+    /// <summary>
+    /// Gets the attribute for the VIP flag.
+    /// </summary>
+    public static AttributeDefinition IsVip { get; } = new(new Guid("195474D6-59A2-4033-9C30-8628ECC0097E"), "Is VIP", "The flag, if an account is a VIP.");
+
+    /// <summary>
+    /// Gets the attribute for the number of points this class will receive for reset, overwrites the default <see cref="Resets.ResetConfiguration.PointsPerReset"/> value.
+    /// </summary>
+    public static AttributeDefinition PointsPerReset { get; } = new(new Guid("a34f4f57-b364-4cdb-9989-64cedd2cd831"), "Points Per Reset", "The number of points the player will receive for reset, overwrites the default 'PointsPerReset' value of the reset configuration.");
 
     /// <summary>
     /// Gets the attributes which are regenerated in an interval.

@@ -42,7 +42,7 @@ public class RavenCommandManager : Disposable, IPetCommandManager
         this._petAttackerSurrogate = new AttackerSurrogate(owner, new RavenAttributeSystem(owner));
     }
 
-    private TimeSpan AttackDelay => TimeSpan.FromMilliseconds(1500 - (this._petAttackerSurrogate.Attributes[Stats.AttackSpeed] * 10));
+    private TimeSpan AttackDelay => TimeSpan.FromMilliseconds(Math.Max(100, 1500 - (this._petAttackerSurrogate.Attributes[Stats.AttackSpeed] * 10)));
 
     /// <summary>
     /// Sets the behaviour.
@@ -51,7 +51,7 @@ public class RavenCommandManager : Disposable, IPetCommandManager
     /// <param name="target">The target.</param>
     public async ValueTask SetBehaviourAsync(PetBehaviour newBehaviour, IAttackable? target)
     {
-        this._attackCts?.Cancel();
+        await (this._attackCts?.CancelAsync() ?? Task.CompletedTask).ConfigureAwait(false);
         this._attackCts?.Dispose();
         this._attackCts = null;
 
@@ -292,8 +292,9 @@ public class RavenCommandManager : Disposable, IPetCommandManager
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool IsValidTarget([NotNullWhen(true)] IAttackable? target)
     {
-        return target is not null
-            && target.IsActive()
-            && target.IsInRange(this._owner.Position, AttackRange);
+        return target is not null 
+               && target is not Monster { Definition.ObjectKind: NpcObjectKind.Guard }
+               && target.IsActive()
+               && target.IsInRange(this._owner.Position, AttackRange);
     }
 }

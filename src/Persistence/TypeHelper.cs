@@ -27,7 +27,17 @@ public static class TypeHelper
     /// <returns>Extended ef core type of <typeparamref name="TBase"/>.</returns>
     public static Type GetPersistentTypeOf<TBase>(this Assembly origin)
     {
-        var baseType = typeof(TBase);
+        return origin.GetPersistentTypeOf(typeof(TBase));
+    }
+
+    /// <summary>
+    /// Gets the ef core type of the given base type.
+    /// </summary>
+    /// <param name="origin">The originating assembly of the persistent type of the base type.</param>
+    /// /// <param name="baseType">Base type of the data model.</param>
+    /// <returns>Extended ef core type of the base type.</returns>
+    public static Type GetPersistentTypeOf(this Assembly origin, Type baseType)
+    {
         if (baseType.Assembly == origin)
         {
             // TBase is already the persistent type
@@ -62,6 +72,26 @@ public static class TypeHelper
         }
 
         return (TBase)Activator.CreateInstance(persistentType, args)!;
+    }
+
+    /// <summary>
+    /// Creates a new object of the extended ef core type of the given type.
+    /// </summary>
+    /// <param name="origin">The originating assembly of the persistent type of <paramref name="type"/>.</param>
+    /// <param name="type">The type which should get created.</param>
+    /// <param name="args">The arguments.</param>
+    /// <returns>
+    /// A new object of the extended ef core type of the <paramref name="type" />.
+    /// </returns>
+    public static object CreateNew(this Assembly origin, Type type, params object?[] args)
+    {
+        var persistentType = origin.GetPersistentTypeOf(type);
+        if (args.Length == 0)
+        {
+            return Activator.CreateInstance(persistentType)!;
+        }
+
+        return Activator.CreateInstance(persistentType, args)!;
     }
 
     /// <summary>

@@ -4,6 +4,9 @@
 
 namespace MUnique.OpenMU.Web.AdminPanel.Services;
 
+using System.IO;
+using System.Threading;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MUnique.OpenMU.Persistence;
 using MUnique.OpenMU.Persistence.Json;
@@ -20,36 +23,41 @@ public class JsonDownloadController<T, TSerializable> : ControllerBase
     where T : class
     where TSerializable : class
 {
-    private readonly IPersistenceContextProvider _persistenceContextProvider;
+    private readonly IDataSource<T> _dataSource;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="JsonDownloadController{T,TSerializable}"/> class.
+    /// Initializes a new instance of the <see cref="JsonDownloadController{T,TSerializable}" /> class.
     /// </summary>
-    /// <param name="persistenceContextProvider">The persistence context provider.</param>
-    public JsonDownloadController(IPersistenceContextProvider persistenceContextProvider)
+    /// <param name="_dataSource">The data source.</param>
+    public JsonDownloadController(IDataSource<T> _dataSource)
     {
-        this._persistenceContextProvider = persistenceContextProvider;
+        this._dataSource = _dataSource;
     }
 
     /// <summary>
     /// Gets the configuration with the specified id as json string.
     /// </summary>
     /// <param name="objectId">The identifier of the requested object.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>
     /// The requested configuration as json string.
     /// </returns>
     [HttpGet("[controller]_{objectId}.json")]
-    public IActionResult? GetConfigurationById(Guid objectId)
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async ValueTask<IActionResult> GetConfigurationByIdAsync(Guid objectId, CancellationToken cancellationToken)
     {
-        using var context = this._persistenceContextProvider.CreateNewTypedContext<T>();
-        var item = context.GetByIdAsync<T>(objectId);
-        if (item is IConvertibleTo<TSerializable> convertibleTo)
+        await this._dataSource.DiscardChangesAsync().ConfigureAwait(false);
+        var owner = await this._dataSource.GetOwnerAsync(objectId).ConfigureAwait(false);
+
+        if (owner is IConvertibleTo<TSerializable> convertibleTo)
         {
-            convertibleTo.Convert().ToJson(this.Response.Body);
-            this.Response.ContentType = "application/json";
-            return this.Ok();
+            var resultStream = new MemoryStream();
+            await convertibleTo.Convert().ToJsonAsync(resultStream, cancellationToken).ConfigureAwait(false);
+            resultStream.Position = 0;
+            return this.File(resultStream, "application/json");
         }
 
-        return null;
+        return this.NotFound();
     }
 }

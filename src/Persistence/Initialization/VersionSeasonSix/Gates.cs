@@ -30,6 +30,7 @@ public class Gates : InitializerBase
         var targetGates = this.CreateTargetGates(maps);
         this.CreateEnterGates(maps, targetGates);
         this.CreateWarpEntries(targetGates);
+        this.GameConfiguration.DuelConfiguration = this.CreateDuelConfiguration(targetGates);
     }
 
     /// <summary>
@@ -68,19 +69,20 @@ public class Gates : InitializerBase
         this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(23, "Icarus", 10000, 170, gates[63]));
         this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(25, "Aida1", 8500, 150, gates[119]));
         this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(27, "Aida2", 8500, 150, gates[140]));
-        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(28, "KanturuRuins", 9000, 150, gates[138]));
+        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(28, "KanturuRuins1", 9000, 160, gates[138]));
         this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(29, "KanturuRuins2", 9000, 160, gates[141]));
-        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(30, "KanturuRelics", 15000, 230, gates[139]));
-        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(31, "Elbeland", 2000, 10, gates[267]));
-        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(32, "Elbeland2", 2500, 10, gates[268]));
+        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(30, "KanturuRelics", 12000, 230, gates[139]));
+        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(31, "Elveland", 2000, 10, gates[267]));
+        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(32, "Elveland2", 2500, 10, gates[268]));
         this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(33, "PeaceSwamp", 15000, 400, gates[273]));
         this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(34, "Raklion", 15000, 280, gates[287]));
-        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(37, "Vulcan", 15000, 30, gates[294]));
+        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(37, "Vulcanus", 15000, 30, gates[294]));
         this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(44, "LorenMarket", 18000, 200, gates[333]));
-        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(43, "Elbeland3", 3000, 10, gates[269]));
-        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(45, "KanturuRuins3", 9000, 160, gates[334]));
+        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(43, "Elveland3", 3000, 10, gates[269]));
+        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(45, "KanturuRuins3", 15000, 160, gates[334]));
         this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(46, "Karutan1", 13000, 170, gates[335]));
-        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(47, "Karutan2", 14000, 180, gates[344]));
+        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(47, "Karutan2", 14000, 170, gates[344]));
+        this.GameConfiguration.WarpList.Add(this.CreateWarpInfo(48, "LaCleon", 15000, 280, gates[287]));
     }
 
     private WarpInfo CreateWarpInfo(ushort index, string name, int costs, int levelRequirement, ExitGate gate)
@@ -440,6 +442,36 @@ public class Gates : InitializerBase
         targetGates.Add(341, this.CreateExitGate(maps[81], 162, 12, 164, 14, 5));
 
         return targetGates;
+    }
+
+    private DuelConfiguration CreateDuelConfiguration(IDictionary<short, ExitGate> targetGates)
+    {
+        var duelConfig = this.Context.CreateNew<DuelConfiguration>();
+        duelConfig.MaximumScore = 10;
+        duelConfig.MinimumCharacterLevel = 30;
+        duelConfig.EntranceFee = 30000;
+        duelConfig.Exit = targetGates[294]; // Vulcanus, see above
+
+        List<(short FirstPlayerGate, short SecondPlayerGate, short SpectatorGate)> duelGateNumbers =
+        [
+            (295, 296, 303),
+            (297, 298, 304),
+            (299, 300, 305),
+            (301, 302, 306),
+        ];
+
+        for (short i = 0; i < duelGateNumbers.Count; i++)
+        {
+            var indices = duelGateNumbers[i];
+            var duelArea = this.Context.CreateNew<DuelArea>();
+            duelArea.Index = i;
+            duelArea.FirstPlayerGate = targetGates[indices.FirstPlayerGate];
+            duelArea.SecondPlayerGate = targetGates[indices.SecondPlayerGate];
+            duelArea.SpectatorsGate = targetGates[indices.SpectatorGate];
+            duelConfig.DuelAreas.Add(duelArea);
+        }
+
+        return duelConfig;
     }
 
     private EnterGate CreateEnterGate(short number, ExitGate targetGate, byte x1, byte y1, byte x2, byte y2, short levelRequirement)

@@ -16,7 +16,7 @@ internal abstract class KalimaBase : BaseMapInitializer
     /// </summary>
     /// <param name="context">The context.</param>
     /// <param name="gameConfiguration">The game configuration.</param>
-    public KalimaBase(IContext context, GameConfiguration gameConfiguration)
+    protected KalimaBase(IContext context, GameConfiguration gameConfiguration)
         : base(context, gameConfiguration)
     {
     }
@@ -24,6 +24,6 @@ internal abstract class KalimaBase : BaseMapInitializer
     /// <inheritdoc/>
     protected override IEnumerable<MonsterSpawnArea> CreateNpcSpawns()
     {
-        yield return this.CreateMonsterSpawn(this.NpcDictionary[259], 007, 019, Direction.South); // Oracle Layla
+        yield return this.CreateMonsterSpawn(1, this.NpcDictionary[259], 007, 019, Direction.South); // Oracle Layla
     }
 }

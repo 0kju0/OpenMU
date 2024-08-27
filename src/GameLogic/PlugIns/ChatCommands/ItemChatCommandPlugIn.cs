@@ -43,7 +43,7 @@ public class ItemChatCommandPlugIn : ChatCommandPlugInBase<ItemChatCommandArgs>
     {
         var item = new TemporaryItem();
         item.Definition = GetItemDefination(gameMaster, arguments);
-        item.Durability = item.Definition.Durability;
+        item.Durability = item.IsStackable() ? 1 : item.Definition.Durability;
         item.HasSkill = item.Definition.Skill != null && arguments.Skill;
         item.Level = GetItemLevel(item.Definition, arguments);
         item.SocketCount = item.Definition.MaximumSockets;
@@ -109,7 +109,7 @@ public class ItemChatCommandPlugIn : ChatCommandPlugInBase<ItemChatCommandArgs>
             var excellentOptions = item.Definition.PossibleItemOptions
                 .SelectMany(o => o.PossibleOptions)
                 .Where(o => o.OptionType == ItemOptionTypes.Excellent)
-                .Where(o => (o.Number & arguments.ExcellentNumber) > default(byte))
+                .Where(o => ((1 << (o.Number - 1)) & arguments.ExcellentNumber) > default(byte))
                 .ToList();
 
             ushort appliedOptions = default;

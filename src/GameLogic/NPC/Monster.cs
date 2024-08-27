@@ -15,7 +15,7 @@ using Nito.AsyncEx;
 /// <summary>
 /// The implementation of a monster, which can attack players.
 /// </summary>
-public sealed class Monster : AttackableNpcBase, IAttackable, IAttacker, ISupportWalk, IMovable
+public sealed class Monster : AttackableNpcBase, IAttackable, IAttacker, ISupportWalk, IMovable, ISummonable
 {
     private readonly AsyncLock _moveLock = new();
     private readonly INpcIntelligence _intelligence;
@@ -41,6 +41,8 @@ public sealed class Monster : AttackableNpcBase, IAttackable, IAttacker, ISuppor
 
     private bool _isCalculatingPath;
 
+    private bool _isReadyToWalk;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="Monster" /> class.
     /// </summary>
@@ -62,7 +64,6 @@ public sealed class Monster : AttackableNpcBase, IAttackable, IAttacker, ISuppor
         (this._skillPowerUp, this._skillPowerUpDuration, this._skillPowerUpTarget) = this.CreateMagicEffectPowerUp();
 
         this._intelligence.Npc = this;
-        this._intelligence.Start();
     }
 
     /// <summary>
@@ -78,7 +79,6 @@ public sealed class Monster : AttackableNpcBase, IAttackable, IAttacker, ISuppor
     /// </summary>
     public Player? SummonedBy => (this._intelligence as SummonedMonsterIntelligence)?.Owner;
 
-    /// <inheritdoc/>
     public Point WalkTarget => this._walker.CurrentTarget;
 
     /// <inheritdoc/>
@@ -105,13 +105,20 @@ public sealed class Monster : AttackableNpcBase, IAttackable, IAttacker, ISuppor
         }
     }
 
+    /// <inheritdoc />
+    public override void OnSpawn()
+    {
+        base.OnSpawn();
+        this._isReadyToWalk = true;
+    }
+
     /// <summary>
     /// Walks to the target coordinates.
     /// </summary>
     /// <param name="target">The target object.</param>
     public async ValueTask<bool> WalkToAsync(Point target)
     {
-        if (this._isCalculatingPath || this.IsWalking)
+        if (this._isCalculatingPath || this.IsWalking || !this._isReadyToWalk)
         {
             return false;
         }
@@ -216,22 +223,36 @@ public sealed class Monster : AttackableNpcBase, IAttackable, IAttacker, ISuppor
     /// </summary>
     internal async ValueTask RandomMoveAsync()
     {
-        byte randx = (byte)GameLogic.Rand.NextInt(Math.Max(0, this.Position.X - 1), Math.Min(0xFF, this.Position.X + 2));
-        byte randy = (byte)GameLogic.Rand.NextInt(Math.Max(0, this.Position.Y - 1), Math.Min(0xFF, this.Position.Y + 2));
-        if (this.CurrentMap.Terrain.AIgrid[randx, randy] == 1)
+        if (!this._isReadyToWalk)
         {
-            var target = new Point(randx, randy);
-            var current = this.Position;
-            using var stepsRent = MemoryPool<WalkingStep>.Shared.Rent(1);
-            var steps = stepsRent.Memory.Slice(0, 1);
-            steps.Span[0] = new WalkingStep
-            {
-                From = current,
-                To = target,
-                Direction = current.GetDirectionTo(target),
-            };
-            await this.WalkToAsync(target, steps).ConfigureAwait(false);
+            return;
         }
+
+        var moveByMaxX = Rand.NextInt(1, this.Definition.MoveRange + 1);
+        var moveByMaxY = Rand.NextInt(1, this.Definition.MoveRange + 1);
+
+        byte randx = (byte)Rand.NextInt(Math.Max(0, this.Position.X - moveByMaxX), Math.Min(0xFF, this.Position.X + moveByMaxX + 1));
+        byte randy = (byte)Rand.NextInt(Math.Max(0, this.Position.Y - moveByMaxY), Math.Min(0xFF, this.Position.Y + moveByMaxY + 1));
+
+        var target = new Point(randx, randy);
+        if (this._intelligence.CanWalkOn(target))
+        {
+            await this.WalkToAsync(target).ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc/>
+    protected override void OnFirstObserverAdded()
+    {
+        base.OnFirstObserverAdded();
+        this._intelligence.Start();
+    }
+
+    /// <inheritdoc/>
+    protected override void OnLastObserverRemoved()
+    {
+        base.OnLastObserverRemoved();
+        this._intelligence.Pause();
     }
 
     /// <inheritdoc/>
@@ -318,6 +339,6 @@ public sealed class Monster : AttackableNpcBase, IAttackable, IAttacker, ISuppor
             throw new InvalidOperationException($"Skill {skill.Name} ({skill.Number}) has no magic effect definition or is without a PowerUpDefinition.");
         }
 
-        return (this.Attributes.CreateElement(powerUpDefinition.Boost), this.Attributes.CreateElement(duration), powerUpDefinition.TargetAttribute);
+        return (this.Attributes.CreateElement(powerUpDefinition), this.Attributes.CreateDurationElement(duration), powerUpDefinition.TargetAttribute);
     }
 }

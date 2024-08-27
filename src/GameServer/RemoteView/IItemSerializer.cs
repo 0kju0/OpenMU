@@ -49,7 +49,7 @@ public interface IItemSerializer : IViewPlugIn
 /// </summary>
 [Guid("3607902F-C7A8-40D0-823A-186F3BF630C7")]
 [PlugIn("Item Serializer", "The default item serializer. It's most likely only correct for season 6.")]
-[MinimumClient(6, 3, ClientLanguage.Invariant)]
+[MinimumClient(5, 0, ClientLanguage.Invariant)]
 public class ItemSerializer : IItemSerializer
 {
     private const byte LuckFlag = 4;
@@ -305,7 +305,7 @@ public class ItemSerializer : IItemSerializer
         var bonusLevel = (ancientByte & AncientBonusLevelMask) >> 2;
         var setDiscriminator = ancientByte & AncientDiscriminatorMask;
         var ancientSets = item.Definition!.PossibleItemSetGroups
-            .Where(set => set.Options.Any(o => o.OptionType == ItemOptionTypes.AncientOption))
+            .Where(set => set.Options?.PossibleOptions.Any(o => o.OptionType == ItemOptionTypes.AncientOption) ?? false)
             .SelectMany(i => i.Items).Where(i => i.ItemDefinition == item.Definition)
             .Where(set => set.AncientSetDiscriminator == setDiscriminator).ToList();
         if (ancientSets.Count > 1)

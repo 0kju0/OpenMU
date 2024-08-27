@@ -7,6 +7,7 @@ namespace MUnique.OpenMU.GameLogic.NPC;
 using System.Diagnostics;
 using System.Threading;
 using MUnique.OpenMU.GameLogic.Attributes;
+using MUnique.OpenMU.Pathfinding;
 
 /// <summary>
 /// A basic monster AI which is pretty basic.
@@ -45,18 +46,19 @@ public class BasicMonsterIntelligence : INpcIntelligence, IDisposable
     /// </summary>
     protected IAttackable? CurrentTarget { get; private set; }
 
-    private async ValueTask<bool> IsObservedByAttackerAsync()
-    {
-        using var readerLock = await this.Monster.ObserverLock.ReaderLockAsync();
-        return this.Monster.Observers.OfType<IAttacker>().Any();
-    }
-
     /// <inheritdoc/>
     public void Start()
     {
-        TimeSpan randomized = this.Npc.Definition.AttackDelay + TimeSpan.FromMilliseconds(Rand.NextInt(0, 1000));
-        // TODO: Optimize this: start timer when first observer is added. stop timer when last observer is removed.
-        this._aiTimer = new Timer(_ => this.SafeTick(), null, randomized, this.Npc.Definition.AttackDelay);
+        var startDelay = this.Npc.Definition.AttackDelay + TimeSpan.FromMilliseconds(Rand.NextInt(0, 100));
+        this.OnStart();
+        this._aiTimer ??= new Timer(_ => this.SafeTick(), null, startDelay, this.Npc.Definition.AttackDelay);
+    }
+
+    /// <inheritdoc/>
+    public void Pause()
+    {
+        this._aiTimer?.Dispose();
+        this._aiTimer = null;
     }
 
     /// <inheritdoc/>
@@ -73,6 +75,20 @@ public class BasicMonsterIntelligence : INpcIntelligence, IDisposable
         {
             this.CurrentTarget = attackable;
         }
+    }
+
+    /// <inheritdoc/>
+    public virtual bool CanWalkOn(Point target)
+    {
+        return this.Monster.CurrentMap.Terrain.AIgrid[target.X, target.Y] == 1;
+    }
+
+    /// <summary>
+    /// Called when the intelligence starts.
+    /// </summary>
+    protected virtual void OnStart()
+    {
+        // can be overwritten for additional logic.
     }
 
     /// <summary>
@@ -103,7 +119,7 @@ public class BasicMonsterIntelligence : INpcIntelligence, IDisposable
         }
 
         var possibleTargets = tempObservers.OfType<IAttackable>()
-            .Where(a => a.IsActive() && !a.IsAtSafezone())
+            .Where(a => a.IsActive() && !a.IsAtSafezone() && a is not Player { IsInvisible: true })
             .ToList();
         var summons = possibleTargets.OfType<Player>()
             .Select(p => p.Summon?.Item1)
@@ -126,6 +142,35 @@ public class BasicMonsterIntelligence : INpcIntelligence, IDisposable
     ///   <c>true</c> if this instance can attack; otherwise, <c>false</c>.
     /// </returns>
     protected virtual ValueTask<bool> CanAttackAsync() => ValueTask.FromResult(true);
+
+    /// <summary>
+    /// Handles the tick without having a target.
+    /// </summary>
+    protected virtual async ValueTask TickWithoutTargetAsync()
+    {
+        if (this.Monster.Attributes[Stats.IsFrozen] > 0)
+        {
+            return;
+        }
+
+        // we move around randomly, so the monster does not look dead when watched from distance.
+        if (await this.IsObservedByAttackerAsync().ConfigureAwait(false))
+        {
+            await this.Monster.RandomMoveAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Determines whether the handled monster is observed by an attacker.
+    /// </summary>
+    /// <returns>
+    ///   <c>true</c> if the handled monster is observed by an attacker; otherwise, <c>false</c>.
+    /// </returns>
+    protected async ValueTask<bool> IsObservedByAttackerAsync()
+    {
+        using var readerLock = await this.Monster.ObserverLock.ReaderLockAsync();
+        return this.Monster.Observers.OfType<IAttacker>().Any();
+    }
 
     private async ValueTask<bool> IsTargetInObserversAsync(IAttackable target)
     {
@@ -156,6 +201,7 @@ public class BasicMonsterIntelligence : INpcIntelligence, IDisposable
     {
         if (!this.Monster.IsAlive)
         {
+            this.CurrentTarget = null;
             return;
         }
 
@@ -179,6 +225,7 @@ public class BasicMonsterIntelligence : INpcIntelligence, IDisposable
         {
             // Old Target out of Range?
             if (!target.IsAlive
+                || target is Player { IsInvisible: true }
                 || target.IsTeleporting
                 || target.IsAtSafezone()
                 || !target.IsInRange(this.Monster.Position, this.Npc.Definition.ViewRange)
@@ -195,22 +242,12 @@ public class BasicMonsterIntelligence : INpcIntelligence, IDisposable
         // no target?
         if (target is null)
         {
-            if (this.Monster.Attributes[Stats.IsFrozen] > 0)
-            {
-                return;
-            }
-
-            // we move around randomly, so the monster does not look dead when watched from distance.
-            if (await this.IsObservedByAttackerAsync().ConfigureAwait(false))
-            {
-                await this.Monster.RandomMoveAsync().ConfigureAwait(false);
-            }
-
+            await this.TickWithoutTargetAsync().ConfigureAwait(false);
             return;
         }
 
         // Target in Attack Range?
-        if (target.IsInRange(this.Monster.Position, this.Monster.Definition.AttackRange + 1) && !this.Monster.IsAtSafezone())
+        if (target.IsInRange(this.Monster.Position, this.Monster.Definition.AttackRange) && !this.Monster.IsAtSafezone())
         {
             await this.Monster.AttackAsync(target).ConfigureAwait(false);  // yes, attack
             return;

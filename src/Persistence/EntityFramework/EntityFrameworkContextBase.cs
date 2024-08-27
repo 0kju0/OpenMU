@@ -2,47 +2,48 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using System.Threading;
+using Nito.Disposables;
+
 namespace MUnique.OpenMU.Persistence.EntityFramework;
 
 using System.Collections;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Composition;
-using MUnique.OpenMU.Interfaces;
+using MUnique.OpenMU.DataModel.Configuration;
 using Nito.AsyncEx;
 
 /// <summary>
 /// Abstract base class for an <see cref="IContext"/> which uses an <see cref="DbContext"/>.
 /// </summary>
-/// <seealso cref="MUnique.OpenMU.Persistence.IContext" />
-public class EntityFrameworkContextBase : IContext
+internal class EntityFrameworkContextBase : IContext
 {
     private readonly bool _isOwner;
-    private readonly IConfigurationChangePublisher? _changePublisher;
+    private readonly IConfigurationChangeListener? _changeListener;
     private readonly AsyncLock _lock = new();
     private readonly ILogger _logger;
     private bool _isDisposed;
+    private int _notificationSuspensions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EntityFrameworkContextBase" /> class.
     /// </summary>
     /// <param name="context">The db context.</param>
-    /// <param name="repositoryManager">The repository manager.</param>
+    /// <param name="repositoryProvider">The repository provider.</param>
     /// <param name="isOwner">If set to <c>true</c>, this instance owns the <see cref="Context" />. That means it will be disposed when this instance will be disposed.</param>
-    /// <param name="changePublisher">The change publisher.</param>
+    /// <param name="changeListener">The change listener.</param>
     /// <param name="logger">The logger.</param>
-    protected EntityFrameworkContextBase(DbContext context, RepositoryManager repositoryManager, bool isOwner, IConfigurationChangePublisher? changePublisher, ILogger logger)
+    protected EntityFrameworkContextBase(DbContext context, IContextAwareRepositoryProvider repositoryProvider, bool isOwner, IConfigurationChangeListener? changeListener, ILogger logger)
     {
         this.Context = context;
-        this.RepositoryManager = repositoryManager;
+        this.RepositoryProvider = repositoryProvider;
         this._isOwner = isOwner;
-        this._changePublisher = changePublisher;
+        this._changeListener = changeListener;
         this._logger = logger;
-        if (this._changePublisher is { })
-        {
-            this.Context.SavedChanges += this.OnSavedChanges;
-        }
     }
 
     /// <summary>
@@ -50,41 +51,64 @@ public class EntityFrameworkContextBase : IContext
     /// </summary>
     ~EntityFrameworkContextBase() => this.Dispose(false);
 
+    /// <inheritdoc />
+    public bool HasChanges => this.Context.ChangeTracker.HasChanges();
+
     /// <summary>
     /// Gets the entity framework context.
     /// </summary>
     internal DbContext Context { get; }
 
     /// <summary>
-    /// Gets the repository manager.
+    /// Gets the repository provider.
     /// </summary>
-    protected RepositoryManager RepositoryManager { get; }
+    protected IContextAwareRepositoryProvider RepositoryProvider { get; }
 
     /// <inheritdoc/>
-    public bool SaveChanges()
-    {
-        using var l = this._lock.Lock();
-
-        // when we have a change publisher attached, we want to get the changed entries before accepting them.
-        // Otherwise, we can accept them.
-        var acceptChanges = this._changePublisher is null;
-
-        this.Context.SaveChanges(acceptChanges);
-
-        return true;
-    }
-
-    /// <inheritdoc/>
-    public async ValueTask<bool> SaveChangesAsync()
+    public async ValueTask<bool> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         using var l = await this._lock.LockAsync();
+
         // when we have a change publisher attached, we want to get the changed entries before accepting them.
         // Otherwise, we can accept them.
-        var acceptChanges = this._changePublisher is null;
+        var acceptChanges = true;
 
-        await this.Context.SaveChangesAsync(acceptChanges).ConfigureAwait(false);
+        object? sender = null;
+        SavedChangesEventArgs? args = null;
+        if (this._changeListener is { })
+        {
+            this.Context.SavedChanges += OnSavedChanges;
+            acceptChanges = false;
+        }
+
+        try
+        {
+            await this.Context.SaveChangesAsync(acceptChanges, cancellationToken).ConfigureAwait(false);
+
+            if (args is not null)
+            {
+                await this.OnSavedChangesAsync(sender, args).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            this.Context.SavedChanges -= OnSavedChanges;
+        }
 
         return true;
+
+        void OnSavedChanges(object? s, SavedChangesEventArgs e)
+        {
+            sender = s;
+            args = e;
+        }
+    }
+
+    /// <inheritdoc />
+    public IDisposable SuspendChangeNotifications()
+    {
+        Interlocked.Increment(ref this._notificationSuspensions);
+        return new Disposable(() => Interlocked.Decrement(ref this._notificationSuspensions));
     }
 
     /// <inheritdoc />
@@ -109,19 +133,21 @@ public class EntityFrameworkContextBase : IContext
         this.Context.Attach(item);
     }
 
-    /// <summary>
-    /// Creates a new instance of <typeparamref name="T" />.
-    /// </summary>
-    /// <typeparam name="T">The type which should get created.</typeparam>
-    /// <param name="args">The arguments which are handed 1-to-1 to the constructor. If no arguments are given, the default constructor will be called.</param>
-    /// <returns>
-    /// A new instance of <typeparamref name="T" />.
-    /// </returns>
+    /// <inheritdoc />
     public T CreateNew<T>(params object?[] args)
         where T : class
     {
         using var l = this._lock.Lock();
         var instance = typeof(CachingEntityFrameworkContext).Assembly.CreateNew<T>(args);
+        this.Context.Add(instance);
+        return instance;
+    }
+
+    /// <inheritdoc />
+    public object CreateNew(Type type, params object?[] args)
+    {
+        using var l = this._lock.Lock();
+        var instance = typeof(CachingEntityFrameworkContext).Assembly.CreateNew(type, args);
         this.Context.Add(instance);
         return instance;
     }
@@ -133,25 +159,25 @@ public class EntityFrameworkContextBase : IContext
         using var l = await this._lock.LockAsync();
 
         var result = false;
-        if (this.Context.Entry(obj) is { } entry)
+        if (this.Context.Entry(obj) is not { } entry)
         {
-            if (entry.State == EntityState.Detached)
-            {
-                return true;
-            }
+            return result;
+        }
 
-            if (entry.State == EntityState.Added)
-            {
+        switch (entry.State)
+        {
+            case EntityState.Detached:
+                return true;
+            case EntityState.Added:
                 this.Detach(obj);
-            }
-            else
-            {
+                break;
+            default:
                 this.Context.Remove(obj);
                 this.ForEachAggregate(obj, a => this.Context.Remove(a));
-            }
-
-            result = true;
+                break;
         }
+
+        result = true;
 
         return result;
     }
@@ -161,16 +187,16 @@ public class EntityFrameworkContextBase : IContext
         where T : class
     {
         using var l = await this._lock.LockAsync();
-        using var context = this.RepositoryManager.ContextStack.UseContext(this);
-        return await this.RepositoryManager.GetRepository<T>().GetByIdAsync(id).ConfigureAwait(false);
+        using var context = this.RepositoryProvider.ContextStack.UseContext(this);
+        return await this.GetRepository<T>().GetByIdAsync(id).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public async Task<object?> GetByIdAsync(Guid id, Type type)
     {
         using var l = await this._lock.LockAsync();
-        using var context = this.RepositoryManager.ContextStack.UseContext(this);
-        return await this.RepositoryManager.GetRepository(type).GetByIdAsync(id).ConfigureAwait(false);
+        using var context = this.RepositoryProvider.ContextStack.UseContext(this);
+        return await this.GetRepository(type).GetByIdAsync(id).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -178,8 +204,44 @@ public class EntityFrameworkContextBase : IContext
         where T : class
     {
         using var l = await this._lock.LockAsync();
-        using var context = this.RepositoryManager.ContextStack.UseContext(this);
-        return await this.RepositoryManager.GetRepository<T>().GetAllAsync().ConfigureAwait(false);
+        using var context = this.RepositoryProvider.ContextStack.UseContext(this);
+        return await this.GetRepository<T>().GetAllAsync().ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<IEnumerable> GetAsync(Type type)
+    {
+        using var l = await this._lock.LockAsync();
+        using var context = this.RepositoryProvider.ContextStack.UseContext(this);
+        return await this.GetRepository(type).GetAllAsync().ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public bool IsSupporting(Type type)
+    {
+        var currentSearchType = type;
+        do
+        {
+            if (currentSearchType is null)
+            {
+                break;
+            }
+
+            if (this.Context.Model.FindLeastDerivedEntityTypes(currentSearchType).FirstOrDefault() is not null)
+            {
+                return true;
+            }
+
+            if (currentSearchType.Name != currentSearchType.BaseType?.Name)
+            {
+                break;
+            }
+
+            currentSearchType = currentSearchType.BaseType;
+        }
+        while (currentSearchType != typeof(object));
+
+        return false;
     }
 
     /// <inheritdoc/>
@@ -200,11 +262,33 @@ public class EntityFrameworkContextBase : IContext
     /// <param name="dispose"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
     protected virtual void Dispose(bool dispose)
     {
-        if (dispose && this._isOwner)
+        if (!dispose || !this._isOwner)
         {
-            this.Context.SavedChanges -= this.OnSavedChanges;
-            this.Context.Dispose();
+            return;
         }
+
+        this.Context.Dispose();
+    }
+
+    private IRepository<T> GetRepository<T>()
+        where T : class
+    {
+        if (this.RepositoryProvider.GetRepository<T>() is { } repository)
+        {
+            return repository;
+        }
+
+        throw new RepositoryNotFoundException(typeof(T));
+    }
+
+    private IRepository GetRepository(Type type)
+    {
+        if (this.RepositoryProvider.GetRepository(type) is { } repository)
+        {
+            return repository;
+        }
+
+        throw new RepositoryNotFoundException(type);
     }
 
     private void ForEachAggregate(object obj, Action<object> action)
@@ -215,7 +299,7 @@ public class EntityFrameworkContextBase : IContext
                         || p.Name.StartsWith("Joined"));
         foreach (var propertyInfo in aggregateProperties)
         {
-            var propertyValue = propertyInfo.GetMethod?.Invoke(obj, Array.Empty<object>());
+            var propertyValue = propertyInfo.GetMethod?.Invoke(obj, []);
             if (propertyValue is IEnumerable enumerable)
             {
                 foreach (var value in enumerable)
@@ -231,35 +315,47 @@ public class EntityFrameworkContextBase : IContext
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "Catching all Exceptions.")]
-    private async void OnSavedChanges(object? sender, SavedChangesEventArgs e)
+    private async ValueTask OnSavedChangesAsync(object? sender, SavedChangesEventArgs e)
     {
         try
         {
-            if (this._changePublisher is null)
+            if (this._changeListener is null || this._notificationSuspensions > 0)
             {
                 // should never be the case
                 return;
             }
 
+            if (e.EntitiesSavedCount == 0)
+            {
+                // why are we getting this event then anyway?
+                return;
+            }
+
             var changedEntries = this.Context.ChangeTracker.Entries()
-                .Where(entity => entity.State == EntityState.Unchanged
-                                 && entity.Metadata.ClrType.IsConfigurationType()).ToList();
+                .Where(entity => entity.State != EntityState.Unchanged).ToList();
             foreach (var entry in changedEntries)
             {
+                var (parent, parentCollectionNavigation) = this.GetParentInformation(entry);
+
                 switch (entry.State)
                 {
                     case EntityState.Added:
-                        await this._changePublisher.ConfigurationAddedAsync(entry.Metadata.ClrType, entry.Entity.GetId(), entry.Entity).ConfigureAwait(false);
+                        await this._changeListener.ConfigurationAddedAsync(entry.Metadata.ClrType, entry.Entity.GetId(), entry.Entity, parent, parentCollectionNavigation).ConfigureAwait(false);
                         break;
                     case EntityState.Deleted:
-                        await this._changePublisher.ConfigurationRemovedAsync(entry.Metadata.ClrType, entry.Entity.GetId()).ConfigureAwait(false);
+                        await this._changeListener.ConfigurationRemovedAsync(entry.Metadata.ClrType, entry.Entity.GetId(), parent, parentCollectionNavigation).ConfigureAwait(false);
                         break;
                     case EntityState.Modified:
-                        await this._changePublisher.ConfigurationChangedAsync(entry.Metadata.ClrType, entry.Entity.GetId(), entry.Entity).ConfigureAwait(false);
+                        await this._changeListener.ConfigurationChangedAsync(entry.Metadata.ClrType, entry.Entity.GetId(), entry.Entity, parent).ConfigureAwait(false);
                         break;
                     default:
                         // no change publishing required.
                         break;
+                }
+
+                if (parent is not null && parent is not GameConfiguration && parent is not Guid)
+                {
+                    await this._changeListener.ConfigurationChangedAsync(parent.GetType(), parent.GetId(), parent, null).ConfigureAwait(false);
                 }
             }
         }
@@ -278,5 +374,32 @@ public class EntityFrameworkContextBase : IContext
                 this._logger.LogError(ex, "Unexpected error when accepting all saved changes.");
             }
         }
+    }
+
+    private (object? Parent, INavigationBase? ParentCollectionNavigation) GetParentInformation(EntityEntry entry)
+    {
+        var propertyToParent = entry.Properties
+            .FirstOrDefault(p => p.Metadata.IsForeignKey()
+                                 && (p.Metadata.IsShadowProperty() || p.Metadata.PropertyInfo?.GetCustomAttribute<IsLinkToParentAttribute>() is not null));
+
+        var parentId = (Guid?)(propertyToParent?.CurrentValue ?? propertyToParent?.OriginalValue);
+        if (parentId is null)
+        {
+            return (null, null);
+        }
+
+        object? parent = null;
+        INavigationBase? parentCollectionNavigation = null;
+        var parentEntry = this.Context.ChangeTracker.Entries().FirstOrDefault(e => e.Entity.GetId() == parentId);
+        if (parentEntry is not null && propertyToParent is not null)
+        {
+            parent = parentEntry.Entity;
+            var parentCollection = parentEntry.Collections
+                .FirstOrDefault(c => c.Metadata.IsCollection
+                                     && (c.Metadata as INavigation)?.ForeignKey == propertyToParent.Metadata.GetContainingForeignKeys().FirstOrDefault());
+            parentCollectionNavigation = parentCollection?.Metadata;
+        }
+
+        return (parent ?? parentId, parentCollectionNavigation);
     }
 }

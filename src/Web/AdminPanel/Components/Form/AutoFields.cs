@@ -5,13 +5,14 @@
 namespace MUnique.OpenMU.Web.AdminPanel.Components.Form;
 
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
-using MUnique.OpenMU.Web.AdminPanel.ComponentBuilders;
 using MUnique.OpenMU.DataModel.Composition;
+using MUnique.OpenMU.Web.AdminPanel.ComponentBuilders;
 using MUnique.OpenMU.Web.AdminPanel.Services;
 
 /// <summary>
@@ -27,6 +28,7 @@ public class AutoFields : ComponentBase
     /// </summary>
     static AutoFields()
     {
+        Builders.Add(new PasswordHashFieldBuilder());
         Builders.Add(new TextFieldBuilder());
         Builders.Add(new NumberFieldBuilder<long>());
         Builders.Add(new NumberFieldBuilder<int>());
@@ -41,7 +43,9 @@ public class AutoFields : ComponentBase
         Builders.Add(new TimeOnlyFieldBuilder());
         Builders.Add(new TimeSpanFieldBuilder());
         Builders.Add(new EnumFieldBuilder());
+        Builders.Add(new FlagsEnumFieldBuilder());
         Builders.Add(new ExitGateFieldBuilder());
+        Builders.Add(new ItemStorageFieldBuilder());
         Builders.Add(new LookupFieldBuilder());
         Builders.Add(new EmbeddedFormFieldBuilder());
         Builders.Add(new ObjectCollectionFieldBuilder());
@@ -58,6 +62,12 @@ public class AutoFields : ComponentBase
     /// </value>
     [CascadingParameter]
     public EditContext Context { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to hide collections or not.
+    /// </summary>
+    [Parameter]
+    public bool HideCollections { get; set; }
 
     /// <summary>
     /// Gets the properties which should be shown in this component.
@@ -82,7 +92,9 @@ public class AutoFields : ComponentBase
                     .Where(p => !p.Name.StartsWith("Raw", StringComparison.InvariantCulture))
                     .Where(p => !p.Name.StartsWith("Joined", StringComparison.InvariantCulture))
                     .Where(p => !p.GetIndexParameters().Any())
-                    .OrderByDescending(p => p.PropertyType == typeof(string))
+                    .Where(p => !this.HideCollections || !p.PropertyType.IsGenericType)
+                    .OrderBy(p => p.GetCustomAttribute<DisplayAttribute>()?.GetOrder())
+                    .ThenByDescending(p => p.PropertyType == typeof(string))
                     .ThenByDescending(p => p.PropertyType.IsValueType)
                     .ThenByDescending(p => !p.PropertyType.IsGenericType)
                     .ToList();
@@ -120,6 +132,7 @@ public class AutoFields : ComponentBase
                 componentBuilder = Builders.FirstOrDefault(b => b.CanBuildComponent(propertyInfo));
                 if (componentBuilder != null)
                 {
+                    // TODO: Build something around groups (same DisplayAttribute.GroupName)
                     i = componentBuilder.BuildComponent(this.Context.Model, propertyInfo, builder, i, this.NotificationService);
                 }
             }

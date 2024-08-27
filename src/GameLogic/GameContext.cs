@@ -16,12 +16,16 @@ using MUnique.OpenMU.Pathfinding;
 using MUnique.OpenMU.Persistence;
 using MUnique.OpenMU.PlugIns;
 using Nito.AsyncEx;
+using org.mariuszgromada.math.mxparser;
 
 /// <summary>
 /// The game context which holds all data of the game together.
 /// </summary>
 public class GameContext : AsyncDisposable, IGameContext
 {
+    private const string DefaultExperienceFormula = "if(level == 0, 0, if(level < 256, 10 * (level + 8) * (level - 1) * (level - 1), (10 * (level + 8) * (level - 1) * (level - 1)) + (1000 * (level - 247) * (level - 256) * (level - 256))))";
+    private const string DefaultMasterExperienceFormula = "(505 * level * level * level) + (35278500 * level) + (228045 * level * level)";
+
     private static readonly Meter Meter = new(MeterName);
 
     private static readonly Counter<int> PlayerCounter = Meter.CreateCounter<int>("PlayerCount");
@@ -51,6 +55,8 @@ public class GameContext : AsyncDisposable, IGameContext
     /// </summary>
     private readonly List<Player> _playerList = new();
 
+    private readonly IDisposable _configChangeHandlerRegistration;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="GameContext" /> class.
     /// </summary>
@@ -60,7 +66,7 @@ public class GameContext : AsyncDisposable, IGameContext
     /// <param name="loggerFactory">The logger factory.</param>
     /// <param name="plugInManager">The plug in manager.</param>
     /// <param name="dropGenerator">The drop generator.</param>
-    public GameContext(GameConfiguration configuration, IPersistenceContextProvider persistenceContextProvider, IMapInitializer mapInitializer, ILoggerFactory loggerFactory, PlugInManager plugInManager, IDropGenerator dropGenerator)
+    public GameContext(GameConfiguration configuration, IPersistenceContextProvider persistenceContextProvider, IMapInitializer mapInitializer, ILoggerFactory loggerFactory, PlugInManager plugInManager, IDropGenerator dropGenerator, IConfigurationChangeMediator changeMediator)
     {
         try
         {
@@ -70,10 +76,15 @@ public class GameContext : AsyncDisposable, IGameContext
             this._mapInitializer = mapInitializer;
             this.LoggerFactory = loggerFactory;
             this.DropGenerator = dropGenerator;
+            this.ConfigurationChangeMediator = changeMediator;
             this.ItemPowerUpFactory = new ItemPowerUpFactory(loggerFactory.CreateLogger<ItemPowerUpFactory>());
             this._recoverTimer = new Timer(this.RecoverTimerElapsed, null, this.Configuration.RecoveryInterval, this.Configuration.RecoveryInterval);
             this._tasksTimer = new Timer(this.ExecutePeriodicTasks, null, 1000, 1000);
             this.FeaturePlugIns = new FeaturePlugInContainer(this.PlugInManager);
+            this._configChangeHandlerRegistration = this.ConfigurationChangeMediator.RegisterObject(this.Configuration, this, this.OnGameConfigurationChangeAsync);
+            this.DuelRoomManager = new DuelRoomManager(this.Configuration.DuelConfiguration!);
+            this.ExperienceTable = CreateExpTable(this.Configuration.ExperienceFormula ?? DefaultExperienceFormula, this.Configuration.MaximumLevel);
+            this.MasterExperienceTable = CreateExpTable(this.Configuration.MasterExperienceFormula ?? DefaultMasterExperienceFormula, this.Configuration.MaximumMasterLevel);
         }
         catch (Exception ex)
         {
@@ -99,13 +110,17 @@ public class GameContext : AsyncDisposable, IGameContext
     /// <inheritdoc />
     public virtual float ExperienceRate => this.Configuration.ExperienceRate;
 
-    /// <summary>
-    /// Gets the initialized maps which are hosted on this context.
-    /// </summary>
-    public IEnumerable<GameMap> Maps => this._mapList.Values.Concat(this._miniGames.Values.Select(g => g.Map));
-
     /// <inheritdoc/>
     public GameConfiguration Configuration { get; }
+
+    /// <inheritdoc/>
+    public long[] ExperienceTable { get; private set; }
+
+    /// <inheritdoc/>
+    public long[] MasterExperienceTable { get; private set; }
+
+    /// <inheritdoc/>
+    public IConfigurationChangeMediator ConfigurationChangeMediator { get; }
 
     /// <inheritdoc/>
     public PlugInManager PlugInManager { get; }
@@ -128,6 +143,14 @@ public class GameContext : AsyncDisposable, IGameContext
     public IDictionary<string, Player> PlayersByCharacterName { get; } = new ConcurrentDictionary<string, Player>();
 
     /// <inheritdoc />
+    public DuelRoomManager DuelRoomManager { get; set; }
+
+    /// <summary>
+    /// Gets the state of the active self defenses.
+    /// </summary>
+    public ConcurrentDictionary<(Player Attacker, Player Defender), DateTime> SelfDefenseState { get; } = new();
+
+    /// <inheritdoc />
     public ILoggerFactory LoggerFactory { get; }
 
     /// <summary>
@@ -142,6 +165,15 @@ public class GameContext : AsyncDisposable, IGameContext
     /// Gets the name of the meter of this class.
     /// </summary>
     internal static string MeterName => typeof(GameContext).FullName ?? nameof(GameContext);
+
+    /// <summary>
+    /// Gets the initialized maps which are hosted on this context.
+    /// </summary>
+    public async ValueTask<IEnumerable<GameMap>> GetMapsAsync()
+    {
+        using var l = await this._mapInitializerLock.LockAsync();
+        return this._mapList.Values.Concat(this._miniGames.Values.Select(g => g.Map)).ToList();
+    }
 
     /// <inheritdoc/>
     public async ValueTask<GameMap?> GetMapAsync(ushort mapId, bool createIfNotExists = true)
@@ -171,15 +203,19 @@ public class GameContext : AsyncDisposable, IGameContext
             }
 
             this._mapList.Add(mapId, createdMap);
-            createdMap.ObjectAdded += args =>
+            createdMap.ObjectAdded += async args =>
             {
-                this.PlugInManager.GetPlugInPoint<IObjectAddedToMapPlugIn>()?.ObjectAddedToMap(args.Map, args.Object);
-                return ValueTask.CompletedTask;
+                if (this.PlugInManager.GetPlugInPoint<IObjectAddedToMapPlugIn>() is { } plugInPoint)
+                {
+                    await plugInPoint.ObjectAddedToMapAsync(args.Map, args.Object).ConfigureAwait(false);
+                }
             };
-            createdMap.ObjectRemoved += args =>
+            createdMap.ObjectRemoved += async args =>
             {
-                this.PlugInManager.GetPlugInPoint<IObjectRemovedFromMapPlugIn>()?.ObjectRemovedFromMap(args.Map, args.Object);
-                return ValueTask.CompletedTask;
+                if (this.PlugInManager.GetPlugInPoint<IObjectRemovedFromMapPlugIn>() is { } plugInPoint)
+                {
+                    await plugInPoint.ObjectRemovedFromMapAsync(args.Map, args.Object).ConfigureAwait(false);
+                }
             };
         }
 
@@ -206,7 +242,7 @@ public class GameContext : AsyncDisposable, IGameContext
             return miniGameContext;
         }
 
-        using (await this._mapInitializerLock.LockAsync())
+        using (await this._mapInitializerLock.LockAsync().ConfigureAwait(false))
         {
             if (this._miniGames.TryGetValue(miniGameKey, out miniGameContext))
             {
@@ -215,6 +251,9 @@ public class GameContext : AsyncDisposable, IGameContext
 
             switch (miniGameDefinition.Type)
             {
+                case MiniGameType.ChaosCastle:
+                    miniGameContext = new ChaosCastleContext(miniGameKey, miniGameDefinition, this, this._mapInitializer);
+                    break;
                 case MiniGameType.DevilSquare:
                     miniGameContext = new DevilSquareContext(miniGameKey, miniGameDefinition, this, this._mapInitializer);
                     break;
@@ -239,11 +278,13 @@ public class GameContext : AsyncDisposable, IGameContext
     }
 
     /// <inheritdoc />
-    public void RemoveMiniGame(MiniGameContext miniGameContext)
+    public async ValueTask RemoveMiniGameAsync(MiniGameContext miniGameContext)
     {
+        using var l = await this._mapInitializerLock.LockAsync().ConfigureAwait(false);
         MiniGameCounter.Add(-1);
         miniGameContext.Dispose();
         this._miniGames.Remove(miniGameContext.Key);
+        this.GameMapRemoved?.Invoke(this, miniGameContext.Map);
     }
 
     /// <summary>
@@ -262,6 +303,18 @@ public class GameContext : AsyncDisposable, IGameContext
         }
 
         PlayerCounter.Add(1);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IList<Player>> GetPlayersAsync()
+    {
+        using var l = await this._playerListLock.ReaderLockAsync();
+        if (this._playerList.Count == 0)
+        {
+            return [];
+        }
+
+        return this._playerList.ToList();
     }
 
     /// <summary>
@@ -307,16 +360,20 @@ public class GameContext : AsyncDisposable, IGameContext
             return;
         }
 
-        using (await this._playerListLock.ReaderLockAsync())
-        {
-            await this._playerList.Select(action).WhenAll().ConfigureAwait(false);
-        }
+        var playerList = await this.GetPlayersAsync().ConfigureAwait(false);
+        await playerList.Select(action).WhenAll().ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public ValueTask SendGlobalMessageAsync(string message, MessageType messageType)
+    public async ValueTask SendGlobalMessageAsync(string message, MessageType messageType)
     {
-        return this.ForEachPlayerAsync(player => player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync(message, messageType)).AsTask());
+        await this.ForEachPlayerAsync(player => player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync(message, messageType)).AsTask()).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask SendGlobalChatMessageAsync(string sender, string message, ChatMessageType messageType)
+    {
+        await this.ForEachPlayerAsync(player => player.InvokeViewPlugInAsync<IChatViewPlugIn>(p => p.ChatMessageAsync(message, sender, messageType)).AsTask()).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -329,9 +386,34 @@ public class GameContext : AsyncDisposable, IGameContext
     /// <inheritdoc/>
     protected override async ValueTask DisposeAsyncCore()
     {
+        this._configChangeHandlerRegistration.Dispose();
         await this._recoverTimer.DisposeAsync().ConfigureAwait(false);
         await this._tasksTimer.DisposeAsync().ConfigureAwait(false);
         await base.DisposeAsyncCore().ConfigureAwait(false);
+    }
+
+    private static long[] CreateExpTable(string experienceFormula, short maximumLevel)
+    {
+        var argument = new Argument("level");
+        var expression = new Expression(experienceFormula);
+        expression.addArguments(argument);
+
+        return Enumerable.Range(0, maximumLevel + 2)
+            .Select(level =>
+            {
+                argument.setArgumentValue(level);
+                return (long)expression.calculate();
+            })
+            .ToArray();
+    }
+
+#pragma warning disable CS1998
+    private async ValueTask OnGameConfigurationChangeAsync(Action unregisterAction, GameConfiguration gameConfiguration, GameContext context)
+#pragma warning restore CS1998
+    {
+        this._recoverTimer.Change(gameConfiguration.RecoveryInterval, gameConfiguration.RecoveryInterval);
+        this.ExperienceTable = CreateExpTable(gameConfiguration.ExperienceFormula ?? DefaultExperienceFormula, gameConfiguration.MaximumLevel);
+        this.MasterExperienceTable = CreateExpTable(gameConfiguration.MasterExperienceFormula ?? DefaultMasterExperienceFormula, gameConfiguration.MaximumMasterLevel);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "Catching all Exceptions.")]
@@ -357,14 +439,13 @@ public class GameContext : AsyncDisposable, IGameContext
         {
             await this.ForEachPlayerAsync(player =>
             {
-                if (player.SelectedCharacter != null && player.PlayerState.CurrentState == PlayerState.EnteredWorld)
+                if (player.SelectedCharacter != null && !player.PlayerState.CurrentState.IsDisconnectedOrFinished())
                 {
                     return player.RegenerateAsync();
                 }
 
                 return Task.CompletedTask;
             }).ConfigureAwait(false);
-
         }
         catch
         {

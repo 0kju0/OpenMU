@@ -2,12 +2,16 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
+using MUnique.OpenMU.DataModel;
+
 namespace MUnique.OpenMU.Persistence.EntityFramework;
 
 using System.Collections;
 using System.Collections.Concurrent;
 using System.IO;
+using Microsoft.Extensions.Logging;
 
+using MUnique.OpenMU.Interfaces;
 using MUnique.OpenMU.Persistence.EntityFramework.Json;
 using MUnique.OpenMU.Persistence.EntityFramework.Model;
 
@@ -18,7 +22,7 @@ using MUnique.OpenMU.Persistence.EntityFramework.Model;
 internal class ConfigurationTypeRepository<T> : IRepository<T>, IConfigurationTypeRepository
     where T : class
 {
-    private readonly RepositoryManager _repositoryManager;
+    private readonly IContextAwareRepositoryProvider _repositoryProvider;
 
     private readonly Func<GameConfiguration, ICollection<T>> _collectionSelector;
 
@@ -29,15 +33,19 @@ internal class ConfigurationTypeRepository<T> : IRepository<T>, IConfigurationTy
     /// </summary>
     private readonly IDictionary<GameConfiguration, IDictionary<Guid, T>> _cache = new ConcurrentDictionary<GameConfiguration, IDictionary<Guid, T>>();
 
+    private readonly ILogger _logger;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ConfigurationTypeRepository{T}" /> class.
     /// </summary>
-    /// <param name="repositoryManager">The repository manager.</param>
+    /// <param name="repositoryProvider">The repository provider.</param>
+    /// <param name="loggerFactory">The logger factory.</param>
     /// <param name="collectionSelector">The collection selector which returns the collection of <typeparamref name="T" /> of a <see cref="GameConfiguration" />.</param>
-    public ConfigurationTypeRepository(RepositoryManager repositoryManager, Func<GameConfiguration, ICollection<T>> collectionSelector)
+    public ConfigurationTypeRepository(IContextAwareRepositoryProvider repositoryProvider, ILoggerFactory loggerFactory, Func<GameConfiguration, ICollection<T>> collectionSelector)
     {
-        this._repositoryManager = repositoryManager;
+        this._repositoryProvider = repositoryProvider;
         this._collectionSelector = collectionSelector;
+        this._logger = loggerFactory.CreateLogger(this.GetType());
     }
 
     /// <summary>
@@ -59,6 +67,7 @@ internal class ConfigurationTypeRepository<T> : IRepository<T>, IConfigurationTy
     public ValueTask<T?> GetByIdAsync(Guid id)
     {
         this.EnsureCacheForCurrentConfiguration();
+
         var dictionary = this._cache[this.GetCurrentGameConfiguration()];
         if (dictionary.TryGetValue(id, out var result))
         {
@@ -71,14 +80,14 @@ internal class ConfigurationTypeRepository<T> : IRepository<T>, IConfigurationTy
     /// <inheritdoc />
     public async ValueTask<bool> DeleteAsync(object obj)
     {
-        if (obj is T item)
+        if (obj is not T item)
         {
-            var gameConfiguration = this.GetCurrentGameConfiguration();
-            var collection = this._collectionSelector(gameConfiguration);
-            return collection.Remove(item);
+            return false;
         }
 
-        return false;
+        var gameConfiguration = this.GetCurrentGameConfiguration();
+        var collection = this._collectionSelector(gameConfiguration);
+        return collection.Remove(item);
     }
 
     /// <inheritdoc />
@@ -101,11 +110,11 @@ internal class ConfigurationTypeRepository<T> : IRepository<T>, IConfigurationTy
 
     /// <summary>
     /// Ensures the cache for the current configuration.
+    /// TODO: Call this at a better place and time - so that we can remove this check before every GetById
     /// </summary>
     public void EnsureCacheForCurrentConfiguration()
     {
         var configuration = this.GetCurrentGameConfiguration();
-
         if (this._cache.ContainsKey(configuration))
         {
             return;
@@ -129,9 +138,32 @@ internal class ConfigurationTypeRepository<T> : IRepository<T>, IConfigurationTy
         }
     }
 
+    /// <inheritdoc />
+    public void UpdateCachedInstances(object changedInstance)
+    {
+        foreach (var (gameConfiguration, cache) in this._cache)
+        {
+            if (!cache.TryGetValue(changedInstance.GetId(), out var cachedInstance))
+            {
+                this._logger.LogDebug("Cached instance '{cachedInstance}' couldn't be updated because it wasn't found.", cachedInstance);
+                return;
+            }
+
+            if (cachedInstance is not IAssignable<T> assignable)
+            {
+                // todo: implement this for all types
+                this._logger.LogWarning("Cached instance '{cachedInstance}' couldn't be updated because it doesn't implement {IAssignable}.", cachedInstance, typeof(IAssignable<T>));
+                return;
+            }
+
+            assignable.AssignValuesOf((T)changedInstance, gameConfiguration);
+            this._logger.LogInformation("Updated cached instance '{cachedInstance}'.", cachedInstance);
+        }
+    }
+
     private GameConfiguration GetCurrentGameConfiguration()
     {
-        var context = (this._repositoryManager.ContextStack.GetCurrentContext() as CachingEntityFrameworkContext)?.Context as EntityDataContext;
+        var context = (this._repositoryProvider.ContextStack.GetCurrentContext() as CachingEntityFrameworkContext)?.Context as EntityDataContext;
         if (context is null)
         {
             throw new InvalidOperationException("This repository can only be used within an account context.");

@@ -45,14 +45,16 @@ public class GameServerContext : GameContext, IGameServerContext
         IMapInitializer mapInitializer,
         ILoggerFactory loggerFactory,
         PlugInManager plugInManager,
-        IDropGenerator dropGenerator)
+        IDropGenerator dropGenerator,
+        IConfigurationChangeMediator changeMediator)
         : base(
             gameServerDefinition.GameConfiguration ?? throw new InvalidOperationException("GameServerDefinition requires a GameConfiguration"),
             persistenceContextProvider,
             mapInitializer,
             loggerFactory,
             plugInManager,
-            dropGenerator)
+            dropGenerator,
+            changeMediator)
     {
         this._gameServerDefinition = gameServerDefinition;
         this.Id = gameServerDefinition.ServerID;
@@ -88,6 +90,12 @@ public class GameServerContext : GameContext, IGameServerContext
 
     /// <inheritdoc />
     public override float ExperienceRate => base.ExperienceRate * this._gameServerDefinition.ExperienceRate;
+
+    /// <inheritdoc />
+    public override string ToString()
+    {
+        return $"Game Server {this.Id}";
+    }
 
     /// <inheritdoc />
     public async ValueTask ForEachGuildPlayerAsync(uint guildId, Func<Player, Task> action)

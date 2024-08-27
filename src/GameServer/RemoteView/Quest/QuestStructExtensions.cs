@@ -11,6 +11,7 @@ using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.Network;
 using MUnique.OpenMU.Network.Packets;
 using MUnique.OpenMU.Network.Packets.ServerToClient;
+using MUnique.OpenMU.Persistence;
 using QuestReward = MUnique.OpenMU.DataModel.Configuration.Quests.QuestReward;
 
 /// <summary>
@@ -121,7 +122,7 @@ public static class QuestStructExtensions
     {
         condition.Type = ConditionType.Item;
         condition.RequiredCount = (uint)itemRequirement.MinimumNumber;
-        condition.CurrentCount = (uint)(player.Inventory?.Items.Count(item => item.Definition == itemRequirement.Item) ?? 0);
+        condition.CurrentCount = (uint)(player.Inventory?.Items.Count(item => Equals(item.Definition, itemRequirement.Item)) ?? 0);
         condition.RequirementId = itemRequirement.Item!.GetItemType();
         var temporaryItem = new TemporaryItem { Definition = itemRequirement.Item };
         temporaryItem.Durability = temporaryItem.GetMaximumDurabilityOfOnePiece();
@@ -133,7 +134,7 @@ public static class QuestStructExtensions
         condition.Type = ConditionType.MonsterKills;
         condition.RequiredCount = (uint)killRequirement.MinimumNumber;
         condition.RequirementId = (ushort)killRequirement.Monster!.Number;
-        condition.CurrentCount = (uint)(questState.RequirementStates.FirstOrDefault(s => s.Requirement == killRequirement)?.KillCount ?? 0);
+        condition.CurrentCount = (uint)(questState.RequirementStates.FirstOrDefault(s => s.Requirement != null && s.Requirement.Equals(killRequirement))?.KillCount ?? 0);
     }
 
     private static void AssignTo(this QuestReward questReward, Network.Packets.ServerToClient.QuestRewardRef rewardStruct, IItemSerializer itemSerializer)

@@ -119,7 +119,7 @@ public class GuildActionTest : GuildTestBase
     public async ValueTask GuildCreateAsync()
     {
         var action = new GuildCreateAction();
-        await action.CreateGuildAsync(this._player, "Foobar2", Array.Empty<byte>()).ConfigureAwait(false);
+        await action.CreateGuildAsync(this._player, "Foobar2", []).ConfigureAwait(false);
         Assert.That(this._player.GuildStatus, Is.Not.Null);
         Assert.That(this._player.GuildStatus!.Position, Is.EqualTo(GuildPosition.GuildMaster));
         var context = this.PersistenceContextProvider.CreateNewGuildContext();
@@ -153,7 +153,7 @@ public class GuildActionTest : GuildTestBase
     {
         var gameConfiguration = new GameConfiguration();
         gameConfiguration.Maps.Add(new GameMapDefinition());
-        var mapInitializer = new MapInitializer(gameConfiguration, new NullLogger<MapInitializer>(), NullDropGenerator.Instance);
+        var mapInitializer = new MapInitializer(gameConfiguration, new NullLogger<MapInitializer>(), NullDropGenerator.Instance, null);
 
         var gameServer = new GameServerContext(
             new GameServerDefinition { GameConfiguration = gameConfiguration, ServerConfiguration = new DataModel.Configuration.GameServerConfiguration() },
@@ -164,8 +164,9 @@ public class GuildActionTest : GuildTestBase
             new InMemoryPersistenceContextProvider(),
             mapInitializer,
             new NullLoggerFactory(),
-            new PlugInManager(new List<PlugIns.PlugInConfiguration>(), new NullLoggerFactory(), null),
-            NullDropGenerator.Instance);
+            new PlugInManager(new List<PlugIns.PlugInConfiguration>(), new NullLoggerFactory(), null, null),
+            NullDropGenerator.Instance,
+            new ConfigurationChangeMediator());
         mapInitializer.PlugInManager = gameServer.PlugInManager;
         mapInitializer.PathFinderPool = gameServer.PathFinderPool;
         return gameServer;

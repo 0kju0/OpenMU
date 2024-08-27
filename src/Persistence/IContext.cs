@@ -4,22 +4,35 @@
 
 namespace MUnique.OpenMU.Persistence;
 
+using System.Collections;
+using System.Threading;
+
 /// <summary>
 /// The context for repository actions.
 /// </summary>
 public interface IContext : IDisposable
 {
     /// <summary>
-    /// Saves the changes of the context.
+    /// Gets a value indicating whether this instance has changes.
     /// </summary>
-    /// <returns><c>True</c>, if the saving was successful; <c>false</c>, otherwise.</returns>
-    bool SaveChanges();
+    bool HasChanges { get; }
 
     /// <summary>
     /// Saves the changes of the context.
     /// </summary>
-    /// <returns><c>True</c>, if the saving was successful; <c>false</c>, otherwise.</returns>
-    ValueTask<bool> SaveChangesAsync();
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>
+    ///   <c>True</c>, if the saving was successful; <c>false</c>, otherwise.
+    /// </returns>
+    ValueTask<bool> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Suspends the change notifications.
+    /// The notifications are re-enabled when the returned disposable is disposed,
+    /// but the notifications are not triggered for the changes which happened during the suspension.
+    /// </summary>
+    /// <returns>A disposable, which must be disposed to re-enable notifications.</returns>
+    IDisposable SuspendChangeNotifications();
 
     /// <summary>
     /// Detaches the specified item from the context, if required.
@@ -28,7 +41,7 @@ public interface IContext : IDisposable
     /// <param name="item">The item which should be detached.</param>
     /// <returns><c>true</c>, if the object was persisted.</returns>
     /// <remarks>
-    /// When calling this method, be sure to clear a back reference property before. Otherwise you might detach more than you intended.
+    /// When calling this method, be sure to clear a back reference property before. Otherwise, you might detach more than you intended.
     /// </remarks>
     bool Detach(object item);
 
@@ -38,7 +51,7 @@ public interface IContext : IDisposable
     /// </summary>
     /// <param name="item">The item which should be attached.</param>
     /// <remarks>
-    /// When calling this method, be sure to clear a previous back reference property before. Otherwise you might attach more than you intended.
+    /// When calling this method, be sure to clear a previous back reference property before. Otherwise, you might attach more than you intended.
     /// </remarks>
     void Attach(object item);
 
@@ -53,6 +66,17 @@ public interface IContext : IDisposable
     /// </returns>
     T CreateNew<T>(params object?[] args)
         where T : class;
+
+    /// <summary>
+    /// Creates a new instance of the given type.
+    /// Attention: This operation needs a currently used context in the current thread!.
+    /// </summary>
+    /// <param name="type">The type which should get created.</param>
+    /// <param name="args">The arguments.</param>
+    /// <returns>
+    /// A new instance of <paramref name="type" />.
+    /// </returns>
+    object CreateNew(Type type, params object?[] args);
 
     /// <summary>
     /// Deletes the specified object.
@@ -87,4 +111,21 @@ public interface IContext : IDisposable
     /// <returns>All objects of the specified type.</returns>
     ValueTask<IEnumerable<T>> GetAsync<T>()
         where T : class;
+
+    /// <summary>
+    /// Gets all objects of the specified type. Use with caution!.
+    /// </summary>
+    /// <param name="type">The type.</param>
+    /// <returns>All objects of the specified type.</returns>
+    ValueTask<IEnumerable> GetAsync(Type type);
+
+    /// <summary>
+    /// Determines whether the specified type is supported by this instance.
+    /// This is usually the case for a type of the object tree of the owner.
+    /// </summary>
+    /// <param name="type">The type.</param>
+    /// <returns>
+    ///   <c>true</c> if the specified type is supported; otherwise, <c>false</c>.
+    /// </returns>
+    bool IsSupporting(Type type);
 }

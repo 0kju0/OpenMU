@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.Quests;
 
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration.Quests;
+using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Views.Character;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
 using MUnique.OpenMU.GameLogic.Views.Quest;
@@ -35,21 +36,30 @@ public class QuestCompletionAction
 
         foreach (var requiredItem in activeQuest.RequiredItems)
         {
-            if (requiredItem.MinimumNumber > player.Inventory?.Items.Count(i => i.Definition == requiredItem.Item))
+            var requiredLevel = requiredItem.DropItemGroup?.ItemLevel;
+            var itemCount = player.Inventory?.Items
+                .Count(i => Equals(i.Definition, requiredItem.Item)
+                            && (requiredLevel is null || requiredLevel == i.Level));
+
+            if (requiredItem.MinimumNumber <= itemCount)
             {
-                player.Logger.LogDebug("Failed, required item not found: {0}", requiredItem.Item!.Name);
-                return;
+                continue;
             }
+
+            player.Logger.LogDebug("Failed, required item not found: {0}", requiredItem.Item!.GetNameForLevel(requiredLevel ?? 0));
+            return;
         }
 
         foreach (var requiredKills in activeQuest.RequiredMonsterKills)
         {
-            var currentKillCount = questState!.RequirementStates.FirstOrDefault(r => r.Requirement == requiredKills)?.KillCount ?? 0;
-            if (currentKillCount < requiredKills.MinimumNumber)
+            var currentKillCount = questState!.RequirementStates.FirstOrDefault(r => object.Equals(r.Requirement, requiredKills))?.KillCount ?? 0;
+            if (currentKillCount >= requiredKills.MinimumNumber)
             {
-                player.Logger.LogDebug("Failed, required kills of monster {0}: {1}/{2};", requiredKills.Monster?.Designation, currentKillCount, requiredKills.MinimumNumber);
-                return;
+                continue;
             }
+
+            player.Logger.LogDebug("Failed, required kills of monster {0}: {1}/{2};", requiredKills.Monster?.Designation, currentKillCount, requiredKills.MinimumNumber);
+            return;
         }
 
         if (activeQuest.RequiresClientAction && !questState!.ClientActionPerformed)
@@ -58,10 +68,13 @@ public class QuestCompletionAction
             return;
         }
 
+        questState!.LastFinishedQuest = activeQuest;
         foreach (var requiredItem in activeQuest.RequiredItems)
         {
+            var requiredLevel = requiredItem.DropItemGroup?.ItemLevel;
             var items = player.Inventory!.Items
-                .Where(item => item.Definition == requiredItem.Item)
+                .Where(item => Equals(item.Definition, requiredItem.Item)
+                               && (requiredLevel is null || requiredLevel == item.Level))
                 .Take(requiredItem.MinimumNumber)
                 .ToList();
 
@@ -73,20 +86,19 @@ public class QuestCompletionAction
 
         foreach (var reward in activeQuest.Rewards)
         {
-            await AddRewardAsync(player, reward).ConfigureAwait(false);
+            await AddRewardAsync(player, reward, activeQuest).ConfigureAwait(false);
         }
 
-        questState!.LastFinishedQuest = activeQuest;
         await questState.ClearAsync(player.PersistenceContext).ConfigureAwait(false);
         await player.InvokeViewPlugInAsync<IQuestCompletionResponsePlugIn>(p => p.QuestCompletedAsync(activeQuest)).ConfigureAwait(false);
     }
 
-    private static async ValueTask AddRewardAsync(Player player, QuestReward reward)
+    private static async ValueTask AddRewardAsync(Player player, QuestReward reward, QuestDefinition quest)
     {
         switch (reward.RewardType)
         {
             case QuestRewardType.Attribute:
-                var attribute = player.SelectedCharacter!.Attributes.FirstOrDefault(a => a.Definition == reward.AttributeReward);
+                var attribute = player.SelectedCharacter!.Attributes.FirstOrDefault(a => object.Equals(a.Definition, reward.AttributeReward));
                 if (attribute is null)
                 {
                     attribute = player.PersistenceContext.CreateNew<StatAttribute>(reward.AttributeReward, 0);
@@ -94,6 +106,13 @@ public class QuestCompletionAction
                 }
 
                 attribute.Value += reward.Value;
+
+                // Compensate level-up points when doing a quest at a later level.
+                if (attribute.Definition == Stats.PointsPerLevelUp)
+                {
+                    var playerLevel = (int)player.Attributes![Stats.Level];
+                    player.SelectedCharacter.LevelUpPoints += (playerLevel - quest.MinimumCharacterLevel) * reward.Value;
+                }
 
                 await player.InvokeViewPlugInAsync<ILegacyQuestRewardPlugIn>(p => p.ShowAsync(player, QuestRewardType.Attribute, reward.Value, attribute.Definition)).ConfigureAwait(false);
                 break;
@@ -160,7 +179,7 @@ public class QuestCompletionAction
                     return;
                 }
 
-                if (skillList.ContainsSkill(skill.Number.ToUnsigned()))
+                if (!skillList.ContainsSkill(skill.Number.ToUnsigned()))
                 {
                     await skillList.AddLearnedSkillAsync(skill).ConfigureAwait(false);
                 }

@@ -2663,12 +2663,12 @@ public static class ConnectionExtensions
     /// <param name="leadership">The leadership.</param>
     /// <param name="usedNegativeFruitPoints">The used negative fruit points.</param>
     /// <param name="maxNegativeFruitPoints">The max negative fruit points.</param>
-    /// <param name="isVaultExtended">The is vault extended.</param>
+    /// <param name="inventoryExtensions">The inventory extensions.</param>
     /// <remarks>
     /// Is sent by the server when: After the character was selected by the player and entered the game.
     /// Causes reaction on client side: The characters enters the game world.
     /// </remarks>
-    public static async ValueTask SendCharacterInformationAsync(this IConnection? connection, byte @x, byte @y, ushort @mapId, ulong @currentExperience, ulong @experienceForNextLevel, ushort @levelUpPoints, ushort @strength, ushort @agility, ushort @vitality, ushort @energy, ushort @currentHealth, ushort @maximumHealth, ushort @currentMana, ushort @maximumMana, ushort @currentShield, ushort @maximumShield, ushort @currentAbility, ushort @maximumAbility, uint @money, CharacterHeroState @heroState, CharacterStatus @status, ushort @usedFruitPoints, ushort @maxFruitPoints, ushort @leadership, ushort @usedNegativeFruitPoints, ushort @maxNegativeFruitPoints, bool @isVaultExtended)
+    public static async ValueTask SendCharacterInformationAsync(this IConnection? connection, byte @x, byte @y, ushort @mapId, ulong @currentExperience, ulong @experienceForNextLevel, ushort @levelUpPoints, ushort @strength, ushort @agility, ushort @vitality, ushort @energy, ushort @currentHealth, ushort @maximumHealth, ushort @currentMana, ushort @maximumMana, ushort @currentShield, ushort @maximumShield, ushort @currentAbility, ushort @maximumAbility, uint @money, CharacterHeroState @heroState, CharacterStatus @status, ushort @usedFruitPoints, ushort @maxFruitPoints, ushort @leadership, ushort @usedNegativeFruitPoints, ushort @maxNegativeFruitPoints, byte @inventoryExtensions)
     {
         if (connection is null)
         {
@@ -2705,7 +2705,7 @@ public static class ConnectionExtensions
             packet.Leadership = @leadership;
             packet.UsedNegativeFruitPoints = @usedNegativeFruitPoints;
             packet.MaxNegativeFruitPoints = @maxNegativeFruitPoints;
-            packet.IsVaultExtended = @isVaultExtended;
+            packet.InventoryExtensions = @inventoryExtensions;
 
             return packet.Header.Length;
         }
@@ -4030,6 +4030,321 @@ public static class ConnectionExtensions
     }
 
     /// <summary>
+    /// Sends a <see cref="DuelStartResult" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="result">The result.</param>
+    /// <param name="opponentId">The opponent id.</param>
+    /// <param name="opponentName">The opponent name.</param>
+    /// <remarks>
+    /// Is sent by the server when: After the client sent a DuelStartRequest, and it either failed or the requested player sent a response.
+    /// Causes reaction on client side: The client shows the started or aborted duel.
+    /// </remarks>
+    public static async ValueTask SendDuelStartResultAsync(this IConnection? connection, DuelStartResult.DuelStartResultType @result, ushort @opponentId, string @opponentName)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelStartResultRef.Length;
+            var packet = new DuelStartResultRef(connection.Output.GetSpan(length)[..length]);
+            packet.Result = @result;
+            packet.OpponentId = @opponentId;
+            packet.OpponentName = @opponentName;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="DuelStartRequest" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="requesterId">The requester id.</param>
+    /// <param name="requesterName">The requester name.</param>
+    /// <remarks>
+    /// Is sent by the server when: After another client sent a DuelStartRequest, to ask the requested player for a response.
+    /// Causes reaction on client side: The client shows the duel request.
+    /// </remarks>
+    public static async ValueTask SendDuelStartRequestAsync(this IConnection? connection, ushort @requesterId, string @requesterName)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelStartRequestRef.Length;
+            var packet = new DuelStartRequestRef(connection.Output.GetSpan(length)[..length]);
+            packet.RequesterId = @requesterId;
+            packet.RequesterName = @requesterName;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="DuelEnd" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="opponentId">The opponent id.</param>
+    /// <param name="opponentName">The opponent name.</param>
+    /// <param name="result">The result.</param>
+    /// <remarks>
+    /// Is sent by the server when: After a duel ended.
+    /// Causes reaction on client side: The client updates its state.
+    /// </remarks>
+    public static async ValueTask SendDuelEndAsync(this IConnection? connection, ushort @opponentId, string @opponentName, byte @result = 0)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelEndRef.Length;
+            var packet = new DuelEndRef(connection.Output.GetSpan(length)[..length]);
+            packet.Result = @result;
+            packet.OpponentId = @opponentId;
+            packet.OpponentName = @opponentName;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="DuelScore" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="player1Id">The player 1 id.</param>
+    /// <param name="player2Id">The player 2 id.</param>
+    /// <param name="player1Score">The player 1 score.</param>
+    /// <param name="player2Score">The player 2 score.</param>
+    /// <remarks>
+    /// Is sent by the server when: When the score of the duel has been changed.
+    /// Causes reaction on client side: The client updates the displayed duel score.
+    /// </remarks>
+    public static async ValueTask SendDuelScoreAsync(this IConnection? connection, ushort @player1Id, ushort @player2Id, byte @player1Score, byte @player2Score)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelScoreRef.Length;
+            var packet = new DuelScoreRef(connection.Output.GetSpan(length)[..length]);
+            packet.Player1Id = @player1Id;
+            packet.Player2Id = @player2Id;
+            packet.Player1Score = @player1Score;
+            packet.Player2Score = @player2Score;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="DuelHealthUpdate" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="player1Id">The player 1 id.</param>
+    /// <param name="player2Id">The player 2 id.</param>
+    /// <param name="player1HealthPercentage">The player 1 health percentage.</param>
+    /// <param name="player2HealthPercentage">The player 2 health percentage.</param>
+    /// <param name="player1ShieldPercentage">The player 1 shield percentage.</param>
+    /// <param name="player2ShieldPercentage">The player 2 shield percentage.</param>
+    /// <remarks>
+    /// Is sent by the server when: When the health/shield of the duel players has been changed.
+    /// Causes reaction on client side: The client updates the displayed health and shield bars.
+    /// </remarks>
+    public static async ValueTask SendDuelHealthUpdateAsync(this IConnection? connection, ushort @player1Id, ushort @player2Id, byte @player1HealthPercentage, byte @player2HealthPercentage, byte @player1ShieldPercentage, byte @player2ShieldPercentage)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelHealthUpdateRef.Length;
+            var packet = new DuelHealthUpdateRef(connection.Output.GetSpan(length)[..length]);
+            packet.Player1Id = @player1Id;
+            packet.Player2Id = @player2Id;
+            packet.Player1HealthPercentage = @player1HealthPercentage;
+            packet.Player2HealthPercentage = @player2HealthPercentage;
+            packet.Player1ShieldPercentage = @player1ShieldPercentage;
+            packet.Player2ShieldPercentage = @player2ShieldPercentage;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="DuelInit" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="result">The result.</param>
+    /// <param name="roomIndex">The room index.</param>
+    /// <param name="player1Name">The player 1 name.</param>
+    /// <param name="player2Name">The player 2 name.</param>
+    /// <param name="player1Id">The player 1 id.</param>
+    /// <param name="player2Id">The player 2 id.</param>
+    /// <remarks>
+    /// Is sent by the server when: When the duel starts.
+    /// Causes reaction on client side: The client initializes the duel state.
+    /// </remarks>
+    public static async ValueTask SendDuelInitAsync(this IConnection? connection, byte @result, byte @roomIndex, string @player1Name, string @player2Name, ushort @player1Id, ushort @player2Id)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelInitRef.Length;
+            var packet = new DuelInitRef(connection.Output.GetSpan(length)[..length]);
+            packet.Result = @result;
+            packet.RoomIndex = @roomIndex;
+            packet.Player1Name = @player1Name;
+            packet.Player2Name = @player2Name;
+            packet.Player1Id = @player1Id;
+            packet.Player2Id = @player2Id;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="DuelHealthBarInit" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <remarks>
+    /// Is sent by the server when: When the duel starts, after the DuelInit message.
+    /// Causes reaction on client side: The client updates the displayed health and shield bars.
+    /// </remarks>
+    public static async ValueTask SendDuelHealthBarInitAsync(this IConnection? connection)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelHealthBarInitRef.Length;
+            var packet = new DuelHealthBarInitRef(connection.Output.GetSpan(length)[..length]);
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="DuelSpectatorAdded" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="name">The name.</param>
+    /// <remarks>
+    /// Is sent by the server when: When a spectator joins a duel.
+    /// Causes reaction on client side: The client updates the list of spectators.
+    /// </remarks>
+    public static async ValueTask SendDuelSpectatorAddedAsync(this IConnection? connection, string @name)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelSpectatorAddedRef.Length;
+            var packet = new DuelSpectatorAddedRef(connection.Output.GetSpan(length)[..length]);
+            packet.Name = @name;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="DuelSpectatorRemoved" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="name">The name.</param>
+    /// <remarks>
+    /// Is sent by the server when: When a spectator joins a duel.
+    /// Causes reaction on client side: The client updates the list of spectators.
+    /// </remarks>
+    public static async ValueTask SendDuelSpectatorRemovedAsync(this IConnection? connection, string @name)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelSpectatorRemovedRef.Length;
+            var packet = new DuelSpectatorRemovedRef(connection.Output.GetSpan(length)[..length]);
+            packet.Name = @name;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="DuelFinished" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="winner">The winner.</param>
+    /// <param name="loser">The loser.</param>
+    /// <remarks>
+    /// Is sent by the server when: When the duel finished.
+    /// Causes reaction on client side: The client shows the winner and loser names.
+    /// </remarks>
+    public static async ValueTask SendDuelFinishedAsync(this IConnection? connection, string @winner, string @loser)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = DuelFinishedRef.Length;
+            var packet = new DuelFinishedRef(connection.Output.GetSpan(length)[..length]);
+            packet.Winner = @winner;
+            packet.Loser = @loser;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Sends a <see cref="SkillStageUpdate" /> to this connection.
     /// </summary>
     /// <param name="connection">The connection.</param>
@@ -4054,6 +4369,224 @@ public static class ConnectionExtensions
             packet.ObjectId = @objectId;
             packet.SkillNumber = @skillNumber;
             packet.Stage = @stage;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="IllusionTempleEnterResult" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="result">The result.</param>
+    /// <remarks>
+    /// Is sent by the server when: The player requested to enter the illusion temple event.
+    /// Causes reaction on client side: The client shows the result.
+    /// </remarks>
+    public static async ValueTask SendIllusionTempleEnterResultAsync(this IConnection? connection, byte @result)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = IllusionTempleEnterResultRef.Length;
+            var packet = new IllusionTempleEnterResultRef(connection.Output.GetSpan(length)[..length]);
+            packet.Result = @result;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="IllusionTempleSkillUsageResult" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="result">The result.</param>
+    /// <param name="skillNumber">The skill number.</param>
+    /// <param name="sourceObjectId">The source object id.</param>
+    /// <param name="targetObjectId">The target object id.</param>
+    /// <remarks>
+    /// Is sent by the server when: A player requested to use a specific skill in the illusion temple event.
+    /// Causes reaction on client side: The client shows the result.
+    /// </remarks>
+    public static async ValueTask SendIllusionTempleSkillUsageResultAsync(this IConnection? connection, byte @result, ushort @skillNumber, ushort @sourceObjectId, ushort @targetObjectId)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = IllusionTempleSkillUsageResultRef.Length;
+            var packet = new IllusionTempleSkillUsageResultRef(connection.Output.GetSpan(length)[..length]);
+            packet.Result = @result;
+            packet.SkillNumber = @skillNumber;
+            packet.SourceObjectId = @sourceObjectId;
+            packet.TargetObjectId = @targetObjectId;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="IllusionTempleUserCount" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="userCount1">The user count 1.</param>
+    /// <param name="userCount2">The user count 2.</param>
+    /// <param name="userCount3">The user count 3.</param>
+    /// <param name="userCount4">The user count 4.</param>
+    /// <param name="userCount5">The user count 5.</param>
+    /// <param name="userCount6">The user count 6.</param>
+    /// <remarks>
+    /// Is sent by the server when: ?
+    /// Causes reaction on client side: The client shows the counts.
+    /// </remarks>
+    public static async ValueTask SendIllusionTempleUserCountAsync(this IConnection? connection, byte @userCount1, byte @userCount2, byte @userCount3, byte @userCount4, byte @userCount5, byte @userCount6)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = IllusionTempleUserCountRef.Length;
+            var packet = new IllusionTempleUserCountRef(connection.Output.GetSpan(length)[..length]);
+            packet.UserCount1 = @userCount1;
+            packet.UserCount2 = @userCount2;
+            packet.UserCount3 = @userCount3;
+            packet.UserCount4 = @userCount4;
+            packet.UserCount5 = @userCount5;
+            packet.UserCount6 = @userCount6;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="IllusionTempleSkillPointUpdate" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="skillPoints">The skill points.</param>
+    /// <remarks>
+    /// Is sent by the server when: ?
+    /// Causes reaction on client side: The client shows the skill points.
+    /// </remarks>
+    public static async ValueTask SendIllusionTempleSkillPointUpdateAsync(this IConnection? connection, byte @skillPoints)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = IllusionTempleSkillPointUpdateRef.Length;
+            var packet = new IllusionTempleSkillPointUpdateRef(connection.Output.GetSpan(length)[..length]);
+            packet.SkillPoints = @skillPoints;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="IllusionTempleSkillEnded" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="skillNumber">The skill number.</param>
+    /// <param name="objectIndex">The object index.</param>
+    /// <remarks>
+    /// Is sent by the server when: ?
+    /// Causes reaction on client side: The client shows the skill points.
+    /// </remarks>
+    public static async ValueTask SendIllusionTempleSkillEndedAsync(this IConnection? connection, ushort @skillNumber, ushort @objectIndex)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = IllusionTempleSkillEndedRef.Length;
+            var packet = new IllusionTempleSkillEndedRef(connection.Output.GetSpan(length)[..length]);
+            packet.SkillNumber = @skillNumber;
+            packet.ObjectIndex = @objectIndex;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="IllusionTempleHolyItemRelics" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="userIndex">The user index.</param>
+    /// <param name="name">The name.</param>
+    /// <remarks>
+    /// Is sent by the server when: ?
+    /// Causes reaction on client side: ?.
+    /// </remarks>
+    public static async ValueTask SendIllusionTempleHolyItemRelicsAsync(this IConnection? connection, ushort @userIndex, string @name)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = IllusionTempleHolyItemRelicsRef.Length;
+            var packet = new IllusionTempleHolyItemRelicsRef(connection.Output.GetSpan(length)[..length]);
+            packet.UserIndex = @userIndex;
+            packet.Name = @name;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="IllusionTempleSkillEnd" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="templeNumber">The temple number.</param>
+    /// <param name="state">The state.</param>
+    /// <remarks>
+    /// Is sent by the server when: ?
+    /// Causes reaction on client side: The client shows the skill points.
+    /// </remarks>
+    public static async ValueTask SendIllusionTempleSkillEndAsync(this IConnection? connection, byte @templeNumber, byte @state)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = IllusionTempleSkillEndRef.Length;
+            var packet = new IllusionTempleSkillEndRef(connection.Output.GetSpan(length)[..length]);
+            packet.TempleNumber = @templeNumber;
+            packet.State = @state;
 
             return packet.Header.Length;
         }
@@ -4596,12 +5129,12 @@ public static class ConnectionExtensions
     /// <param name="gameType">The game type.</param>
     /// <param name="remainingEnteringTimeMinutes">The remaining entering time minutes.</param>
     /// <param name="userCount">The user count.</param>
-    /// <param name="remainingEnteringTimeMinutes2">The remaining entering time minutes 2.</param>
+    /// <param name="remainingEnteringTimeMinutesLow">Just used for Chaos Castle. In this case, this field contains the lower byte of the remaining minutes. For other event types, this field is not used.</param>
     /// <remarks>
     /// Is sent by the server when: The player requests to get the current opening state of a mini game event, by clicking on an ticket item.
     /// Causes reaction on client side: The opening state of the event (remaining entering time, etc.) is shown at the client.
     /// </remarks>
-    public static async ValueTask SendMiniGameOpeningStateAsync(this IConnection? connection, MiniGameType @gameType, byte @remainingEnteringTimeMinutes, byte @userCount, byte @remainingEnteringTimeMinutes2)
+    public static async ValueTask SendMiniGameOpeningStateAsync(this IConnection? connection, MiniGameType @gameType, byte @remainingEnteringTimeMinutes, byte @userCount, byte @remainingEnteringTimeMinutesLow)
     {
         if (connection is null)
         {
@@ -4615,7 +5148,7 @@ public static class ConnectionExtensions
             packet.GameType = @gameType;
             packet.RemainingEnteringTimeMinutes = @remainingEnteringTimeMinutes;
             packet.UserCount = @userCount;
-            packet.RemainingEnteringTimeMinutes2 = @remainingEnteringTimeMinutes2;
+            packet.RemainingEnteringTimeMinutesLow = @remainingEnteringTimeMinutesLow;
 
             return packet.Header.Length;
         }
@@ -4748,6 +5281,34 @@ public static class ConnectionExtensions
             packet.CurMonster = @curMonster;
             packet.ItemOwnerId = @itemOwnerId;
             packet.ItemLevel = @itemLevel;
+
+            return packet.Header.Length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends a <see cref="ChaosCastleEnterResult" /> to this connection.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="result">The result.</param>
+    /// <remarks>
+    /// Is sent by the server when: The player requested to enter the chaos castle mini game by using the 'Armor of Guardsman' item.
+    /// Causes reaction on client side: In case it failed, it shows the corresponding error message.
+    /// </remarks>
+    public static async ValueTask SendChaosCastleEnterResultAsync(this IConnection? connection, ChaosCastleEnterResult.EnterResult @result)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            var length = ChaosCastleEnterResultRef.Length;
+            var packet = new ChaosCastleEnterResultRef(connection.Output.GetSpan(length)[..length]);
+            packet.Result = @result;
 
             return packet.Header.Length;
         }

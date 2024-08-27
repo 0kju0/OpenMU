@@ -4,6 +4,8 @@
 
 namespace MUnique.OpenMU.DataModel.Configuration;
 
+using MUnique.OpenMU.Annotations;
+using MUnique.OpenMU.DataModel.Attributes;
 using MUnique.OpenMU.DataModel.Configuration.Items;
 
 /// <summary>
@@ -18,7 +20,8 @@ using MUnique.OpenMU.DataModel.Configuration.Items;
 /// To reflect this requirement on this data model, for each status there must be one game map definition.
 /// The switch between this status and its corresponding game map definitions should be done in game logic.
 /// </remarks>
-public class GameMapDefinition
+[Cloneable]
+public partial class GameMapDefinition
 {
     /// <summary>
     /// Gets or sets the number of the map.
@@ -97,6 +100,12 @@ public class GameMapDefinition
     /// </summary>
     [MemberOfAggregate]
     public virtual ICollection<AttributeRequirement> MapRequirements { get; protected set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the power ups which are applied to characters which are currently on this map.
+    /// </summary>
+    [MemberOfAggregate]
+    public virtual ICollection<PowerUpDefinition> CharacterPowerUpDefinitions { get; protected set; } = null!;
 
     /// <inheritdoc/>
     public override string ToString()

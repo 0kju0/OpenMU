@@ -138,6 +138,7 @@ public sealed class DroppedItem : AsyncDisposable, ILocateable
     {
         return $"{this.Id}: {this.Item} at {this.CurrentMap.Definition.Name} ({this.Position})";
     }
+
     /// <inheritdoc/>
     protected override async ValueTask DisposeAsyncCore()
     {
@@ -249,6 +250,11 @@ public sealed class DroppedItem : AsyncDisposable, ILocateable
 
         player.Logger.LogInformation("Item '{0}' got picked up by player '{1}'. Durability of available stack {2} increased to {3}", this, player, stackTarget, stackTarget.Durability);
         this.DisposeAndDelete(null);
+        if (player.GameContext.PlugInManager.GetPlugInPoint<PlugIns.IItemStackedPlugIn>() is { } itemStackedPlugIn)
+        {
+            await itemStackedPlugIn.ItemStackedAsync(player, this.Item, stackTarget).ConfigureAwait(false);
+        }
+
         return true;
     }
 

@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.DataModel.Configuration;
 
+using MUnique.OpenMU.Annotations;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration.Items;
 
@@ -153,6 +154,11 @@ public enum SkillTarget
     /// The primary target is stated explicitly, additional targets are all objects in the <see cref="Skill.ImplicitTargetRange"/> of the primary target.
     /// </summary>
     ExplicitWithImplicitInRange = 6,
+
+    /// <summary>
+    /// The skill target is only the own player implicitly.
+    /// </summary>
+    ImplicitPlayer = 7,
 }
 
 /// <summary>
@@ -184,7 +190,8 @@ public enum SkillTargetRestriction
 /// <summary>
 /// Defines a skill.
 /// </summary>
-public class Skill
+[Cloneable]
+public partial class Skill
 {
     /// <summary>
     /// Gets or sets the skill number.

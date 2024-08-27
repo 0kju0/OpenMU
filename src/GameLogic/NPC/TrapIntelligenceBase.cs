@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.NPC;
 
+using MUnique.OpenMU.Pathfinding;
 using System.Diagnostics;
 using System.Threading;
 
@@ -14,6 +15,11 @@ public abstract class TrapIntelligenceBase : INpcIntelligence, IDisposable
 {
     private Timer? _aiTimer;
     private Trap? _trap;
+
+    /// <summary>
+    /// CanWalkOn?
+    /// </summary>
+    public virtual bool CanWalkOn(Point target) => false;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TrapIntelligenceBase"/> class.
@@ -71,7 +77,15 @@ public abstract class TrapIntelligenceBase : INpcIntelligence, IDisposable
     /// <inheritdoc/>
     public void Start()
     {
-        this._aiTimer = new Timer(state => this.SafeTick(), null, this.Trap.Definition.AttackDelay, this.Trap.Definition.AttackDelay);
+        var startDelay = this.Npc.Definition.AttackDelay + TimeSpan.FromMilliseconds(Rand.NextInt(0, 1000));
+        this._aiTimer ??= new Timer(_ => this.SafeTick(), null, startDelay, this.Npc.Definition.AttackDelay);
+    }
+
+    /// <inheritdoc/>
+    public void Pause()
+    {
+        this._aiTimer?.Dispose();
+        this._aiTimer = null;
     }
 
     /// <inheritdoc/>

@@ -42,8 +42,12 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.CharacterClass>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.ChatServerDefinition>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.ChatServerEndpoint>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.ConfigurationUpdate>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.ConfigurationUpdateState>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.ConnectServerDefinition>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.DropItemGroup>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.DuelArea>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.DuelConfiguration>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.EnterGate>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.ExitGate>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.GameClientDefinition>();
@@ -72,6 +76,7 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.SkillComboDefinition>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.SkillComboStep>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.StatAttributeDefinition>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.SystemConfiguration>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.WarpInfo>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.Quests.QuestDefinition>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Configuration.Quests.QuestItemRequirement>();
@@ -109,12 +114,14 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         // All members which are marked with the MemberOfAggregateAttribute, should be defined with ON DELETE CASCADE.
         modelBuilder.Entity<Account>().HasOne(entity => entity.RawVault).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Account>().HasMany(entity => entity.RawCharacters).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Account>().HasMany(entity => entity.RawAttributes).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<AppearanceData>().HasMany(entity => entity.RawEquippedItems).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawAttributes).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawLetters).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawLearnedSkills).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasOne(entity => entity.RawInventory).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawQuestStates).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CharacterQuestState>().HasMany(entity => entity.RawRequirementStates).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Item>().HasMany(entity => entity.RawItemOptions).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ItemStorage>().HasMany(entity => entity.RawItems).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<LetterBody>().HasOne(entity => entity.RawSenderAppearance).WithOne().OnDelete(DeleteBehavior.Cascade);
@@ -126,6 +133,8 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<CharacterClass>().HasMany(entity => entity.RawBaseAttributeValues).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<CharacterClass>().HasOne(entity => entity.RawComboDefinition).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ChatServerDefinition>().HasMany(entity => entity.RawEndpoints).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<DuelConfiguration>().HasMany(entity => entity.RawDuelAreas).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<GameConfiguration>().HasOne(entity => entity.RawDuelConfiguration).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<GameConfiguration>().HasMany(entity => entity.RawJewelMixes).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<GameConfiguration>().HasMany(entity => entity.RawWarpList).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<GameConfiguration>().HasMany(entity => entity.RawDropItemGroups).WithOne().OnDelete(DeleteBehavior.Cascade);
@@ -150,6 +159,7 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<GameMapDefinition>().HasOne(entity => entity.RawBattleZone).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<GameMapDefinition>().HasMany(entity => entity.RawExitGates).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<GameMapDefinition>().HasMany(entity => entity.RawMapRequirements).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<GameMapDefinition>().HasMany(entity => entity.RawCharacterPowerUpDefinitions).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<GameServerDefinition>().HasMany(entity => entity.RawEndpoints).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<MagicEffectDefinition>().HasOne(entity => entity.RawDuration).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<MagicEffectDefinition>().HasMany(entity => entity.RawPowerUpDefinitions).WithOne().OnDelete(DeleteBehavior.Cascade);
@@ -181,7 +191,6 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<ItemOptionCombinationBonus>().HasOne(entity => entity.RawBonus).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ItemOptionDefinition>().HasMany(entity => entity.RawPossibleOptions).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ItemOptionOfLevel>().HasOne(entity => entity.RawPowerUpDefinition).WithOne().OnDelete(DeleteBehavior.Cascade);
-        modelBuilder.Entity<ItemSetGroup>().HasMany(entity => entity.RawOptions).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ItemSetGroup>().HasMany(entity => entity.RawItems).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<ItemCrafting>().HasOne(entity => entity.RawSimpleCraftingSettings).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<SimpleCraftingSettings>().HasMany(entity => entity.RawRequiredItems).WithOne().OnDelete(DeleteBehavior.Cascade);

@@ -8,7 +8,6 @@ using System.Diagnostics;
 using System.Threading;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.GameLogic.Attributes;
-using MUnique.OpenMU.GameLogic.Pet;
 using MUnique.OpenMU.GameLogic.PlugIns;
 using MUnique.OpenMU.GameLogic.Views.World;
 using MUnique.OpenMU.Pathfinding;
@@ -99,9 +98,14 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
                                   || (this.SpawnArea.SpawnTrigger == SpawnTrigger.AutomaticDuringWave && (this._eventStateProvider?.IsSpawnWaveActive(this.SpawnArea.WaveNumber) ?? false));
 
     /// <inheritdoc />
-    public async ValueTask AttackByAsync(IAttacker attacker, SkillEntry? skill, bool isCombo)
+    public async ValueTask AttackByAsync(IAttacker attacker, SkillEntry? skill, bool isCombo, double damageFactor = 1.0)
     {
-        var hitInfo = await attacker.CalculateDamageAsync(this, skill, isCombo).ConfigureAwait(false);
+        if (this.Definition.ObjectKind == NpcObjectKind.Guard)
+        {
+            return;
+        }
+
+        var hitInfo = await attacker.CalculateDamageAsync(this, skill, isCombo, damageFactor).ConfigureAwait(false);
         await this.HitAsync(hitInfo, attacker, skill?.Skill).ConfigureAwait(false);
         if (hitInfo.HealthDamage > 0)
         {
@@ -123,6 +127,12 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
 
     /// <inheritdoc />
     public abstract ValueTask ApplyPoisonDamageAsync(IAttacker initialAttacker, uint damage);
+
+    /// <inheritdoc/>
+    public ValueTask KillInstantlyAsync()
+    {
+        throw new NotImplementedException();
+    }
 
     /// <inheritdoc/>
     public override void Initialize()
@@ -227,6 +237,7 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
 
             this.Initialize();
             await this.CurrentMap.RespawnAsync(this).ConfigureAwait(false);
+            this.OnSpawn();
         }
         catch (Exception ex)
         {
@@ -284,7 +295,7 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
 
     private async ValueTask DropItemAsync(int exp, Player killer)
     {
-        var generatedItems = this._dropGenerator.GenerateItemDrops(this.Definition, exp, killer, out var droppedMoney);
+        var (generatedItems, droppedMoney) = await this._dropGenerator.GenerateItemDropsAsync(this.Definition, exp, killer).ConfigureAwait(false);
         if (droppedMoney > 0)
         {
             await this.HandleMoneyDropAsync(droppedMoney.Value, killer).ConfigureAwait(false);
@@ -320,8 +331,15 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
         {
             _ = Task.Run(async () =>
             {
-                await Task.Delay(this.Definition.RespawnDelay).ConfigureAwait(false);
-                await this.RespawnAsync().ConfigureAwait(false);
+                try
+                {
+                    await Task.Delay(this.Definition.RespawnDelay).ConfigureAwait(false);
+                    await this.RespawnAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Debug.Fail($"Unexpected error during respawning the attackable npc {this}: {ex}", ex.StackTrace);
+                }
             });
         }
 
@@ -331,17 +349,35 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
         if (player is { })
         {
             int exp = await ((player.Party?.DistributeExperienceAfterKillAsync(this, player) ?? player.AddExpAfterKillAsync(this)).ConfigureAwait(false));
-            await this.DropItemAsync(exp, player).ConfigureAwait(false);
             if (attacker == player)
             {
                 await player.AfterKilledMonsterAsync().ConfigureAwait(false);
             }
 
-            player.GameContext.PlugInManager.GetPlugInPoint<IAttackableGotKilledPlugIn>()?.AttackableGotKilled(this, attacker);
+            if (player.GameContext.PlugInManager.GetPlugInPoint<IAttackableGotKilledPlugIn>() is { } plugInPoint)
+            {
+                await plugInPoint.AttackableGotKilledAsync(this, attacker);
+            }
+
             if (player.SelectedCharacter!.State > HeroState.Normal)
             {
                 player.SelectedCharacter.StateRemainingSeconds -= (int)this.Attributes[Stats.Level];
             }
+
+            _ = this.DropItemDelayedAsync(player, exp); // don't wait for completion.
+        }
+    }
+
+    private async ValueTask DropItemDelayedAsync(Player player, int gainedExp)
+    {
+        try
+        {
+            await Task.Delay(1000).ConfigureAwait(false);
+            await this.DropItemAsync(gainedExp, player).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            player.Logger.LogDebug(ex, "Dropping an item failed after killing '{this}': {ex}", this, ex);
         }
     }
 }

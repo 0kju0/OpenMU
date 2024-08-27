@@ -4,13 +4,17 @@
 
 namespace MUnique.OpenMU.DataModel.Configuration.Items;
 
+using MUnique.OpenMU.Annotations;
+using System.Text.Json.Serialization;
+
 /// <summary>
 /// Defines additional bonus options for this item of a set.
 /// </summary>
 /// <remarks>
 /// Here we can define additional bonus options, like the ancient options (e.g. +5 / +10 Str etc.).
 /// </remarks>
-public class ItemOfItemSet
+[Cloneable]
+public partial class ItemOfItemSet
 {
     /// <summary>
     /// Gets or sets the ancient set discriminator.
@@ -36,6 +40,12 @@ public class ItemOfItemSet
     /// Gets or sets the bonus option.
     /// </summary>
     public virtual IncreasableItemOption? BonusOption { get; set; }
+
+    /// <summary>
+    /// Gets the name.
+    /// </summary>
+    [JsonIgnore]
+    public string Name => $"{this.ItemSetGroup?.Name} {this.ItemDefinition?.Name}";
 
     /// <inheritdoc/>
     public override string ToString()

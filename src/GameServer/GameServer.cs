@@ -54,7 +54,8 @@ public sealed class GameServer : IGameServer, IDisposable, IGameServerContextPro
         IPersistenceContextProvider persistenceContextProvider,
         IFriendServer friendServer,
         ILoggerFactory loggerFactory,
-        PlugInManager plugInManager)
+        PlugInManager plugInManager,
+        IConfigurationChangeMediator changeMediator)
     {
         this.Id = gameServerDefinition.ServerID;
         this.Description = gameServerDefinition.Description;
@@ -64,8 +65,8 @@ public sealed class GameServer : IGameServer, IDisposable, IGameServerContextPro
         {
             var gameConfiguration = gameServerDefinition.GameConfiguration ?? throw Error.NotInitializedProperty(gameServerDefinition, nameof(gameServerDefinition.GameConfiguration));
             var dropGenerator = new DefaultDropGenerator(gameConfiguration, Rand.GetRandomizer());
-            var mapInitializer = new GameServerMapInitializer(gameServerDefinition, loggerFactory.CreateLogger<GameServerMapInitializer>(), dropGenerator);
-            this._gameContext = new GameServerContext(gameServerDefinition, guildServer, eventPublisher, loginServer, friendServer, persistenceContextProvider, mapInitializer, loggerFactory, plugInManager, dropGenerator);
+            var mapInitializer = new GameServerMapInitializer(gameServerDefinition, loggerFactory.CreateLogger<GameServerMapInitializer>(), dropGenerator, changeMediator);
+            this._gameContext = new GameServerContext(gameServerDefinition, guildServer, eventPublisher, loginServer, friendServer, persistenceContextProvider, mapInitializer, loggerFactory, plugInManager, dropGenerator, changeMediator);
             this._gameContext.GameMapCreated += (_, _) => this.OnPropertyChanged(nameof(this.Context));
             this._gameContext.GameMapRemoved += (_, _) => this.OnPropertyChanged(nameof(this.Context));
             mapInitializer.PlugInManager = this._gameContext.PlugInManager;
@@ -188,15 +189,7 @@ public sealed class GameServer : IGameServer, IDisposable, IGameServerContextPro
         this._logger.LogInformation("Saving all open sessions...");
 
         // Because disconnecting might directly change the internal player list, we first collect all players.
-        var playerList = new List<Player>();
-
-        // TODO: Simpler way to get all players from the context.
-        await this._gameContext.ForEachPlayerAsync(player =>
-        {
-            playerList.Add(player);
-            return Task.CompletedTask;
-        }).ConfigureAwait(false);
-
+        var playerList = await this._gameContext.GetPlayersAsync().ConfigureAwait(false);
         await playerList.Select(player => player.DisconnectAsync().AsTask()).WhenAll().ConfigureAwait(false);
 
         this.ServerState = ServerState.Stopped;
@@ -277,6 +270,21 @@ public sealed class GameServer : IGameServer, IDisposable, IGameServerContextPro
         if (player != null)
         {
             await player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync("You got disconnected by a game master.", MessageType.BlueNormal)).ConfigureAwait(false);
+            await player.DisconnectAsync().ConfigureAwait(false);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<bool> DisconnectAccountAsync(string accountName)
+    {
+        var players = await this._gameContext.GetPlayersAsync().ConfigureAwait(false);
+        var player = players.FirstOrDefault(p => p.Account?.LoginName == accountName);
+        if (player != null)
+        {
+            await player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync("You got disconnected by an administrator.", MessageType.BlueNormal)).ConfigureAwait(false);
             await player.DisconnectAsync().ConfigureAwait(false);
             return true;
         }
@@ -453,7 +461,7 @@ public sealed class GameServer : IGameServer, IDisposable, IGameServerContextPro
         }
         catch (Exception ex)
         {
-            this._logger.LogError($"Couldn't Save at Disconnect. Player: {this}", ex);
+            this._logger.LogError(ex, "Couldn't Save at Disconnect. Player: {player}", this);
 
             // TODO: Log Character/Account values, to be able to restore players data if necessary.
         }

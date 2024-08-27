@@ -1750,7 +1750,7 @@
     </Packet>
     <Packet>
       <HeaderType>C1Header</HeaderType>
-      <Code>C3</Code>
+      <Code>3C</Code>
       <Name>TradeButtonStateChanged</Name>
       <Length>4</Length>
       <Direction>ServerToClient</Direction>
@@ -4712,7 +4712,7 @@
               <Name>SkillNumber</Name>
             </Field>
             <Field>
-              <Index>2</Index>
+              <Index>3</Index>
               <Type>Byte</Type>
               <Name>SkillLevel</Name>
             </Field>
@@ -5180,8 +5180,8 @@
         </Field>
         <Field>
           <Index>68</Index>
-          <Type>Boolean</Type>
-          <Name>IsVaultExtended</Name>
+          <Type>Byte</Type>
+          <Name>InventoryExtensions</Name>
         </Field>
       </Fields>
     </Packet>
@@ -7228,6 +7228,409 @@
         </Field>
       </Fields>
     </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>01</SubCode>
+      <Name>DuelStartResult</Name>
+      <Length>17</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>After the client sent a DuelStartRequest, and it either failed or the requested player sent a response.</SentWhen>
+      <CausedReaction>The client shows the started or aborted duel.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Enum</Type>
+          <TypeName>DuelStartResultType</TypeName>
+          <Name>Result</Name>
+        </Field>
+        <Field>
+          <Index>5</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>OpponentId</Name>
+        </Field>
+        <Field>
+          <Index>7</Index>
+          <Type>String</Type>
+          <Name>OpponentName</Name>
+          <Length>10</Length>
+        </Field>
+      </Fields>
+      <Enums>
+        <Enum>
+          <Name>DuelStartResultType</Name>
+          <Description>Describes the type of the duel result.</Description>
+          <Values>
+            <EnumValue>
+              <Name>Success</Name>
+              <Description>The duel has been started.</Description>
+              <Value>0</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>FailedByTooLowLevel</Name>
+              <Description>The duel couldn't be started, because one of the players has not the minimum level, usually 30.</Description>
+              <Value>12</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>FailedByError</Name>
+              <Description>The duel couldn't be started, because of an unexpected error.</Description>
+              <Value>14</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>Refused</Name>
+              <Description>The duel couldn't be started, because the opponent refused.</Description>
+              <Value>15</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>FailedByNoFreeRoom</Name>
+              <Description>The duel couldn't be started, because no duel room is free.</Description>
+              <Value>16</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>FailedBy_</Name>
+              <Description>The duel couldn't be started, because ...</Description>
+              <Value>28</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>FailedByNotEnoughMoney</Name>
+              <Description>The duel couldn't be started, because one of the players has not enough money, usually 30000. </Description>
+              <Value>30</Value>
+            </EnumValue>
+          </Values>
+        </Enum>
+      </Enums>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>02</SubCode>
+      <Name>DuelStartRequest</Name>
+      <Length>16</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>After another client sent a DuelStartRequest, to ask the requested player for a response.</SentWhen>
+      <CausedReaction>The client shows the duel request.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>ShortLittleEndian</Type>
+          <Name>RequesterId</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>String</Type>
+          <Name>RequesterName</Name>
+          <Length>10</Length>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>03</SubCode>
+      <Name>DuelEnd</Name>
+      <Length>17</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>After a duel ended.</SentWhen>
+      <CausedReaction>The client updates its state.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Byte</Type>
+          <Name>Result</Name>
+          <DefaultValue>0</DefaultValue>
+        </Field>
+        <Field>
+          <Index>5</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>OpponentId</Name>
+        </Field>
+        <Field>
+          <Index>7</Index>
+          <Type>String</Type>
+          <Name>OpponentName</Name>
+          <Length>10</Length>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>04</SubCode>
+      <Name>DuelScore</Name>
+      <Length>10</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>When the score of the duel has been changed.</SentWhen>
+      <CausedReaction>The client updates the displayed duel score.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>Player1Id</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>Player2Id</Name>
+        </Field>
+        <Field>
+          <Index>8</Index>
+          <Type>Byte</Type>
+          <Name>Player1Score</Name>
+        </Field>
+        <Field>
+          <Index>9</Index>
+          <Type>Byte</Type>
+          <Name>Player2Score</Name>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>05</SubCode>
+      <Name>DuelHealthUpdate</Name>
+      <Length>12</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>When the health/shield of the duel players has been changed.</SentWhen>
+      <CausedReaction>The client updates the displayed health and shield bars.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>Player1Id</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>Player2Id</Name>
+        </Field>
+        <Field>
+          <Index>8</Index>
+          <Type>Byte</Type>
+          <Name>Player1HealthPercentage</Name>
+        </Field>
+        <Field>
+          <Index>9</Index>
+          <Type>Byte</Type>
+          <Name>Player2HealthPercentage</Name>
+        </Field>
+        <Field>
+          <Index>10</Index>
+          <Type>Byte</Type>
+          <Name>Player1ShieldPercentage</Name>
+        </Field>
+        <Field>
+          <Index>11</Index>
+          <Type>Byte</Type>
+          <Name>Player2ShieldPercentage</Name>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>06</SubCode>
+      <Name>DuelStatus</Name>
+      <Length>92</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>When the client requested the list of the current duel rooms.</SentWhen>
+      <CausedReaction>The client shows the list of duel rooms.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Structure[]</Type>
+          <TypeName>DuelRoomStatus</TypeName>
+          <Name>Rooms</Name>
+          <Length>4</Length>
+        </Field>
+      </Fields>
+      <Structures>
+        <Structure>
+          <Name>DuelRoomStatus</Name>
+          <Description>Structure for a duel room entry.</Description>
+          <Length>22</Length>
+          <Fields>
+            <Field>
+              <Index>0</Index>
+              <Type>String</Type>
+              <Name>Player1Name</Name>
+              <Length>10</Length>
+            </Field>
+            <Field>
+              <Index>10</Index>
+              <Type>String</Type>
+              <Name>Player2Name</Name>
+              <Length>10</Length>
+            </Field>
+            <Field>
+              <Index>20</Index>
+              <Type>Boolean</Type>
+              <Name>DuelRunning</Name>
+            </Field>
+            <Field>
+              <Index>21</Index>
+              <Type>Boolean</Type>
+              <Name>DuelOpen</Name>
+            </Field>
+          </Fields>
+        </Structure>
+      </Structures>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>07</SubCode>
+      <Name>DuelInit</Name>
+      <Length>30</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>When the duel starts.</SentWhen>
+      <CausedReaction>The client initializes the duel state.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Byte</Type>
+          <Name>Result</Name>
+        </Field>
+        <Field>
+          <Index>5</Index>
+          <Type>Byte</Type>
+          <Name>RoomIndex</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>String</Type>
+          <Name>Player1Name</Name>
+          <Length>10</Length>
+        </Field>
+        <Field>
+          <Index>16</Index>
+          <Type>String</Type>
+          <Name>Player2Name</Name>
+          <Length>10</Length>
+        </Field>
+        <Field>
+          <Index>26</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>Player1Id</Name>
+        </Field>
+        <Field>
+          <Index>28</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>Player2Id</Name>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>0D</SubCode>
+      <Name>DuelHealthBarInit</Name>
+      <Length>4</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>When the duel starts, after the DuelInit message.</SentWhen>
+      <CausedReaction>The client updates the displayed health and shield bars.</CausedReaction>
+      <Fields>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>08</SubCode>
+      <Name>DuelSpectatorAdded</Name>
+      <Length>14</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>When a spectator joins a duel.</SentWhen>
+      <CausedReaction>The client updates the list of spectators.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>String</Type>
+          <Name>Name</Name>
+          <Length>10</Length>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>0A</SubCode>
+      <Name>DuelSpectatorRemoved</Name>
+      <Length>14</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>When a spectator joins a duel.</SentWhen>
+      <CausedReaction>The client updates the list of spectators.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>String</Type>
+          <Name>Name</Name>
+          <Length>10</Length>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>0B</SubCode>
+      <Name>DuelSpectatorList</Name>
+      <Length>105</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>When a spectator joins or leaves a duel.</SentWhen>
+      <CausedReaction>The client updates the list of spectators.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Byte</Type>
+          <Name>Count</Name>
+        </Field>
+        <Field>
+          <Index>5</Index>
+          <Type>Structure[]</Type>
+          <TypeName>DuelSpectator</TypeName>
+          <Name>Spectators</Name>
+          <Length>10</Length>
+        </Field>
+      </Fields>
+      <Structures>
+        <Structure>
+          <Name>DuelSpectator</Name>
+          <Description>Structure for a duel room entry.</Description>
+          <Length>10</Length>
+          <Fields>
+            <Field>
+              <Index>0</Index>
+              <Type>String</Type>
+              <Name>Name</Name>
+              <Length>10</Length>
+            </Field>
+          </Fields>
+        </Structure>
+      </Structures>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>AA</Code>
+      <SubCode>0C</SubCode>
+      <Name>DuelFinished</Name>
+      <Length>24</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>When the duel finished.</SentWhen>
+      <CausedReaction>The client shows the winner and loser names.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>String</Type>
+          <Name>Winner</Name>
+          <Length>10</Length>
+        </Field>
+        <Field>
+          <Index>14</Index>
+          <Type>String</Type>
+          <Name>Loser</Name>
+          <Length>10</Length>
+        </Field>
+      </Fields>
+    </Packet>
 		<Packet>
 			<HeaderType>C1Header</HeaderType>
 			<Code>BA</Code>
@@ -7255,6 +7658,381 @@
 				</Field>
 			</Fields>
 		</Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>00</SubCode>
+      <Name>IllusionTempleEnterResult</Name>
+      <Length>5</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>The player requested to enter the illusion temple event.</SentWhen>
+      <CausedReaction>The client shows the result.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Byte</Type>
+          <Name>Result</Name>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>01</SubCode>
+      <Name>IllusionTempleState</Name>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>The player is in the illusion temple event and the server sends a cyclic update.</SentWhen>
+      <CausedReaction>The client shows the state in the user interface.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>ShortLittleEndian</Type>
+          <Name>RemainingSeconds</Name>
+        </Field>
+        <Field>
+          <Index>4</Index>
+          <Type>ShortLittleEndian</Type>
+          <Name>PlayerIndex</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>Byte</Type>
+          <Name>PositionX</Name>
+        </Field>
+        <Field>
+          <Index>7</Index>
+          <Type>Byte</Type>
+          <Name>PositionY</Name>
+        </Field>
+        <Field>
+          <Index>8</Index>
+          <Type>Byte</Type>
+          <Name>Team1Points</Name>
+        </Field>
+        <Field>
+          <Index>9</Index>
+          <Type>Byte</Type>
+          <Name>Team2Points</Name>
+        </Field>
+        <Field>
+          <Index>10</Index>
+          <Type>Byte</Type>
+          <Name>MyTeam</Name>
+        </Field>
+        <Field>
+          <Index>11</Index>
+          <Type>Byte</Type>
+          <Name>PartyCount</Name>
+        </Field>
+        <Field>
+          <Index>12</Index>
+          <Type>Structure[]</Type>
+          <TypeName>IllusionTemplePartyEntry</TypeName>
+          <Name>PartyMembers</Name>
+        </Field>
+      </Fields>
+      <Structures>
+        <Structure>
+          <Name>IllusionTemplePartyEntry</Name>
+          <Description>Contains the info about a party member in illusion temple.</Description>
+          <Length>5</Length>
+          <Fields>
+            <Field>
+              <Index>0</Index>
+              <Type>ShortLittleEndian</Type>
+              <Name>PlayerId</Name>
+            </Field>
+            <Field>
+              <Index>2</Index>
+              <Type>ShortLittleEndian</Type>
+              <Name>MapNumber</Name>
+            </Field>
+            <Field>
+              <Index>3</Index>
+              <Type>Byte</Type>
+              <Name>PositionX</Name>
+            </Field>
+            <Field>
+              <Index>4</Index>
+              <Type>Byte</Type>
+              <Name>PositionY</Name>
+            </Field>
+          </Fields>
+        </Structure>
+      </Structures>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>02</SubCode>
+      <Name>IllusionTempleSkillUsageResult</Name>
+      <Length>11</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>A player requested to use a specific skill in the illusion temple event.</SentWhen>
+      <CausedReaction>The client shows the result.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Byte</Type>
+          <Name>Result</Name>
+        </Field>
+        <Field>
+          <Index>5</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>SkillNumber</Name>
+        </Field>
+        <Field>
+          <Index>7</Index>
+          <Type>ShortLittleEndian</Type>
+          <Name>SourceObjectId</Name>
+        </Field>
+        <Field>
+          <Index>9</Index>
+          <Type>ShortLittleEndian</Type>
+          <Name>TargetObjectId</Name>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>03</SubCode>
+      <Name>IllusionTempleUserCount</Name>
+      <Length>10</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>?</SentWhen>
+      <CausedReaction>The client shows the counts.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Byte</Type>
+          <Name>UserCount1</Name>
+        </Field>
+        <Field>
+          <Index>5</Index>
+          <Type>Byte</Type>
+          <Name>UserCount2</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>Byte</Type>
+          <Name>UserCount3</Name>
+        </Field>
+        <Field>
+          <Index>7</Index>
+          <Type>Byte</Type>
+          <Name>UserCount4</Name>
+        </Field>
+        <Field>
+          <Index>8</Index>
+          <Type>Byte</Type>
+          <Name>UserCount5</Name>
+        </Field>
+        <Field>
+          <Index>9</Index>
+          <Type>Byte</Type>
+          <Name>UserCount6</Name>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>04</SubCode>
+      <Name>IllusionTempleResult</Name>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>The illusion temple event ended.</SentWhen>
+      <CausedReaction>The client shows the results.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Byte</Type>
+          <Name>Team1Points</Name>
+        </Field>
+        <Field>
+          <Index>5</Index>
+          <Type>Byte</Type>
+          <Name>Team2Points</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>Byte</Type>
+          <Name>PlayerCount</Name>
+        </Field>
+        <Field>
+          <Index>10</Index>
+          <Type>Structure[]</Type>
+          <TypeName>PlayerResult</TypeName>
+          <Name>Players</Name>
+          <ItemCountField>PlayerCount</ItemCountField>
+        </Field>
+      </Fields>
+      <Structures>
+        <Structure>
+          <Name>PlayerResult</Name>
+          <Description>Contains the result of a player in the event.</Description>
+          <Length>17</Length>
+          <Fields>
+            <Field>
+              <Index>0</Index>
+              <Type>String</Type>
+              <Name>Name</Name>
+            </Field>
+            <Field>
+              <Index>10</Index>
+              <Type>Byte</Type>
+              <Name>MapNumber</Name>
+            </Field>
+            <Field>
+              <Index>11</Index>
+              <Type>Byte</Type>
+              <Name>Team</Name>
+            </Field>
+            <Field>
+              <Index>12</Index>
+              <Type>Byte</Type>
+              <Name>Class</Name>
+            </Field>
+            <Field>
+              <Index>13</Index>
+              <Type>IntegerLittleEndian</Type>
+              <Name>AddedExperience</Name>
+            </Field>
+          </Fields>
+        </Structure>
+      </Structures>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>06</SubCode>
+      <Name>IllusionTempleSkillPointUpdate</Name>
+      <Length>5</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>?</SentWhen>
+      <CausedReaction>The client shows the skill points.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Byte</Type>
+          <Name>SkillPoints</Name>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>07</SubCode>
+      <Name>IllusionTempleSkillEnded</Name>
+      <Length>8</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>?</SentWhen>
+      <CausedReaction>The client shows the skill points.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>SkillNumber</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>ShortLittleEndian</Type>
+          <Name>ObjectIndex</Name>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>08</SubCode>
+      <Name>IllusionTempleHolyItemRelics</Name>
+      <Length>16</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>?</SentWhen>
+      <CausedReaction>?.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>ShortLittleEndian</Type>
+          <Name>UserIndex</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>String</Type>
+          <Name>Name</Name>
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>07</SubCode>
+      <Name>IllusionTempleSkillEnd</Name>
+      <Length>6</Length>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>?</SentWhen>
+      <CausedReaction>The client shows the skill points.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>Byte</Type>
+          <Name>TempleNumber</Name>
+        </Field>
+        <Field>
+          <Index>5</Index>
+          <Type>Byte</Type>
+          <Name>State</Name>
+          <!-- todo: enum, 0: wait, 1: wait->ready, 2: ready->play, 3: play->end, -->
+        </Field>
+      </Fields>
+    </Packet>
+    <Packet>
+      <HeaderType>C1HeaderWithSubCode</HeaderType>
+      <Code>BF</Code>
+      <SubCode>0A</SubCode>
+      <Name>ChainLightningHitInfo</Name>
+      <Direction>ServerToClient</Direction>
+      <SentWhen>The player applied chain lightning to a target and the server calculated the hits.</SentWhen>
+      <CausedReaction>The client shows the chain lightning effect.</CausedReaction>
+      <Fields>
+        <Field>
+          <Index>4</Index>
+          <Type>ShortBigEndian</Type>
+          <Name>SkillNumber</Name>
+        </Field>
+        <Field>
+          <Index>6</Index>
+          <Type>ShortLittleEndian</Type>
+          <Name>PlayerId</Name>
+        </Field>
+        <Field>
+          <Index>8</Index>
+          <Type>Byte</Type>
+          <Name>TargetCount</Name>
+        </Field>
+        <Field>
+          <Index>10</Index>
+          <Type>Structure[]</Type>
+          <TypeName>ChainTarget</TypeName>
+          <Name>Targets</Name>
+          <ItemCountField>TargetCount</ItemCountField>
+        </Field>
+      </Fields>
+      <Structures>
+        <Structure>
+          <Name>ChainTarget</Name>
+          <Description>Contains the target identifier.</Description>
+          <Length>2</Length>
+          <Fields>
+            <Field>
+              <Index>0</Index>
+              <Type>ShortLittleEndian</Type>
+              <Name>TargetId</Name>
+            </Field>
+          </Fields>
+        </Structure>
+      </Structures>
+    </Packet>
 		<Packet>
 			<HeaderType>C1HeaderWithSubCode</HeaderType>
 			<Code>BF</Code>
@@ -8035,7 +8813,8 @@
         <Field>
           <Index>6</Index>
           <Type>Byte</Type>
-          <Name>RemainingEnteringTimeMinutes2</Name>
+          <Name>RemainingEnteringTimeMinutesLow</Name>
+					<Description>Just used for Chaos Castle. In this case, this field contains the lower byte of the remaining minutes. For other event types, this field is not used.</Description>
         </Field>
       </Fields>
     </Packet>
@@ -8326,29 +9105,115 @@
           <Description>Defines the status of the event.</Description>
           <Values>
             <EnumValue>
-              <Name>Started</Name>
-              <Description>The event has just started and is running.</Description>
+              <Name>BloodCastleStarted</Name>
+              <Description>The blood castle event has just started and is running.</Description>
               <Value>0</Value>
             </EnumValue>
             <EnumValue>
-              <Name>GateNotDestroyed</Name>
-              <Description>The event is running, but the gate is not destroyed.</Description>
+              <Name>BloodCastleGateNotDestroyed</Name>
+              <Description>The blood castle event is running, but the gate is not destroyed.</Description>
               <Value>1</Value>
             </EnumValue>
             <EnumValue>
-              <Name>Ended</Name>
-              <Description>The event has ended.</Description>
+              <Name>BloodCastleEnded</Name>
+              <Description>The blood castle event has ended.</Description>
               <Value>2</Value>
             </EnumValue>
             <EnumValue>
-              <Name>GateDestroyed</Name>
-              <Description>The event is running and the gate is destroyed.</Description>
+              <Name>BloodCastleGateDestroyed</Name>
+              <Description>The blood castle event is running and the gate is destroyed.</Description>
               <Value>4</Value>
+            </EnumValue>
+						<EnumValue>
+              <Name>ChaosCastleStarted</Name>
+              <Description>The chaos castle event has just started and is running.</Description>
+              <Value>5</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>ChaosCastleRunning</Name>
+              <Description>The chaos castle event is running.</Description>
+              <Value>6</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>ChaosCastleEnded</Name>
+              <Description>The chaos castle event has ended.</Description>
+              <Value>7</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>ChaosCastleStageOne</Name>
+              <Description>The chaos castle event reached the first stage of map shrinking.</Description>
+              <Value>8</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>ChaosCastleStageTwo</Name>
+              <Description>The chaos castle event reached the second stage of map shrinking.</Description>
+              <Value>9</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>ChaosCastleStageThree</Name>
+              <Description>The chaos castle event reached the third stage of map shrinking.</Description>
+              <Value>10</Value>
             </EnumValue>
           </Values>
         </Enum>
       </Enums>
     </Packet>
+		<Packet>
+			<HeaderType>C1HeaderWithSubCode</HeaderType>
+			<Code>AF</Code>
+			<SubCode>01</SubCode>
+			<Name>ChaosCastleEnterResult</Name>
+			<Length>5</Length>
+			<Direction>ServerToClient</Direction>
+			<SentWhen>The player requested to enter the chaos castle mini game by using the 'Armor of Guardsman' item.</SentWhen>
+			<CausedReaction>In case it failed, it shows the corresponding error message.</CausedReaction>
+			<Fields>
+				<Field>
+					<Index>4</Index>
+					<Type>Enum</Type>
+					<TypeName>EnterResult</TypeName>
+					<Name>Result</Name>
+				</Field>
+			</Fields>
+			<Enums>
+				<Enum>
+					<Name>EnterResult</Name>
+					<Description>Defines the result of the enter request.</Description>
+					<Values>
+						<EnumValue>
+							<Name>Success</Name>
+							<Description>The event has been entered.</Description>
+							<Value>0</Value>
+						</EnumValue>
+						<EnumValue>
+							<Name>Failed</Name>
+							<Description>Entering the event failed, e.g. by missing event ticket or level range.</Description>
+							<Value>1</Value>
+						</EnumValue>
+						<EnumValue>
+							<Name>NotOpen</Name>
+							<Description>Entering the event failed, because it's not opened.</Description>
+							<Value>2</Value>
+						</EnumValue>
+						<EnumValue>
+							<Name>Full</Name>
+							<Description>Entering the event failed, because it's full.</Description>
+							<Value>5</Value>
+						</EnumValue>
+            <EnumValue>
+              <Name>NotEnoughMoney</Name>
+              <Description>Entering the event failed, because the player doesn't have enough money for the entrance fee.</Description>
+              <Value>7</Value>
+            </EnumValue>
+            <EnumValue>
+              <Name>PlayerKillerCantEnter</Name>
+              <Description>Entering the event failed, because the player has a pk state.</Description>
+              <Value>8</Value>
+            </EnumValue>
+					</Values>
+				</Enum>
+			</Enums>
+		</Packet>
     <Packet>
       <HeaderType>C1Header</HeaderType>
       <Code>0B</Code>
@@ -8391,42 +9256,6 @@
     </Packet>
   </Packets>
   <Enums>
-    <Enum>
-      <Name>MiniGameType</Name>
-      <Description>Defines the type of the mini game.</Description>
-      <Values>
-        <EnumValue>
-          <Name>Undefined</Name>
-          <Description>Undefined mini game type.</Description>
-          <Value>0</Value>
-        </EnumValue>
-        <EnumValue>
-          <Name>DevilSquare</Name>
-          <Description>The devil square mini game.</Description>
-          <Value>1</Value>
-        </EnumValue>
-        <EnumValue>
-          <Name>BloodCastle</Name>
-          <Description>The blood castle mini game.</Description>
-          <Value>2</Value>
-        </EnumValue>
-        <EnumValue>
-          <Name>ChaosCastle</Name>
-          <Description>The chaos castle mini game.</Description>
-          <Value>4</Value>
-        </EnumValue>
-        <EnumValue>
-          <Name>IllusionTemple</Name>
-          <Description>The illusion temple mini game.</Description>
-          <Value>5</Value>
-        </EnumValue>
-        <EnumValue>
-          <Name>Doppelganger</Name>
-          <Description>The doppelgänger mini game.</Description>
-          <Value>6</Value>
-        </EnumValue>
-      </Values>
-    </Enum>
     <Enum>
       <Name>GuildMemberRole</Name>
       <Description>Defines the role of a guild member.</Description>

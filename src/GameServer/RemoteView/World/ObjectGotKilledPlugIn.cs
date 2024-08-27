@@ -28,7 +28,7 @@ public class ObjectGotKilledPlugIn : IObjectGotKilledPlugIn
     public ObjectGotKilledPlugIn(RemotePlayer player) => this._player = player;
 
     /// <inheritdoc/>
-    public async ValueTask ObjectGotKilledAsync(IAttackable killed, IAttacker killer)
+    public async ValueTask ObjectGotKilledAsync(IAttackable killed, IAttacker? killer)
     {
         if (this._player.Connection is not { } connection)
         {
@@ -41,7 +41,7 @@ public class ObjectGotKilledPlugIn : IObjectGotKilledPlugIn
         var isCombo = killed.LastDeath?.FinalHit.Attributes.HasFlag(DamageAttributes.Combo) ?? false;
         skillId = isCombo ? ShowSkillAnimationPlugIn.ComboSkillId : skillId;
         await connection.SendObjectGotKilledAsync(killedId, skillId, killerId).ConfigureAwait(false);
-        if (this._player == killed && killer is Player killerPlayer)
+        if (this._player == killed && killer is Player killerPlayer && this._player.DuelRoom is null)
         {
             await this._player.InvokeViewPlugInAsync<IShowMessagePlugIn>(p => p.ShowMessageAsync($"You got killed by {killerPlayer.Name}", MessageType.BlueNormal)).ConfigureAwait(false);
         }

@@ -2,9 +2,6 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
-using MUnique.OpenMU.Web.Map;
-using Nito.AsyncEx.Synchronous;
-
 namespace MUnique.OpenMU.Web.AdminPanel;
 
 using System.IO;
@@ -17,6 +14,7 @@ using Microsoft.Extensions.Hosting;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.Persistence;
+using MUnique.OpenMU.Persistence.Initialization.Updates;
 using MUnique.OpenMU.Persistence.Initialization.VersionSeasonSix;
 using MUnique.OpenMU.Web.AdminPanel.Models;
 using MUnique.OpenMU.Web.AdminPanel.Services;
@@ -56,9 +54,12 @@ public static class WebApplicationExtensions
 
         services.AddBlazoredModal();
 
-        services.AddSingleton<ILookupController, PersistentObjectsLookupController>();
-        services.AddSingleton<SetupService>();
+        services.AddScoped<ILookupController, PersistentObjectsLookupController>();
 
+        services.AddSingleton<IDataSource<GameConfiguration>, GameConfigurationDataSource>();
+        services.AddSingleton<IDataSource<Account>, AccountDataSource>();
+        services.AddScoped<SetupService>();
+        services.AddScoped<DataUpdateService>();
         services.AddScoped<AccountService>();
         services.AddScoped<IDataService<Account>>(serviceProvider => serviceProvider.GetService<AccountService>()!);
         services.AddScoped<PlugInController>();
@@ -66,18 +67,8 @@ public static class WebApplicationExtensions
         services.AddScoped<IUserService, NginxHtpasswdFileUserService>();
         services.AddScoped<IChangeNotificationService, ChangeNotificationService>();
 
-        services.AddScoped(provider =>
-        {
-            var contextProvider = provider.GetService<IPersistenceContextProvider>();
-            using var initialContext = contextProvider!.CreateNewConfigurationContext();
-            return initialContext.GetAsync<GameConfiguration>().AsTask().WaitAndUnwrapException().FirstOrDefault()!;
-        });
-
-        services.AddTransient(provider =>
-        {
-            var contextProvider = provider.GetService<IPersistenceContextProvider>();
-            return contextProvider!.CreateNewPlayerContext(provider.GetService<GameConfiguration>()!);
-        });
+        services.AddScoped<LoggedInAccountService>();
+        services.AddScoped<IDataService<LoggedInAccount>>(serviceProvider => serviceProvider.GetService<LoggedInAccountService>()!);
 
         StaticWebAssetsLoader.UseStaticWebAssets(builder.Environment, builder.Configuration);
         return builder;
@@ -90,7 +81,11 @@ public static class WebApplicationExtensions
     /// <returns>The configured web application.</returns>
     public static WebApplication ConfigureAdminPanel(this WebApplication app)
     {
-        if (!app.Environment.IsDevelopment())
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseDeveloperExceptionPage();
+        }
+        else
         {
             app.UseExceptionHandler("/Error");
         }

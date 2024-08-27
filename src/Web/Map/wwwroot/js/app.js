@@ -120,8 +120,7 @@ System.register("Types", [], function (exports_2, context_2) {
                 Direction[Direction["NorthEast"] = 6] = "NorthEast";
                 Direction[Direction["North"] = 7] = "North";
                 Direction[Direction["NorthWest"] = 8] = "NorthWest";
-            })(Direction || (Direction = {}));
-            exports_2("Direction", Direction);
+            })(Direction || (exports_2("Direction", Direction = {})));
         }
     };
 });
@@ -188,7 +187,8 @@ System.register("Attack", ["three", "tween", "Queue"], function (exports_4, cont
                     if (this.freeAttackIndexes.peek() === null) {
                         return;
                     }
-                    if (target === undefined || target === null) {
+                    if (target === undefined || target === null
+                        || attacker === undefined || attacker === null) {
                         return;
                     }
                     var newIndex = this.freeAttackIndexes.dequeue();
@@ -625,6 +625,9 @@ System.register("World", ["three", "Attack", "TerrainShader", "Player", "Attacka
                 };
                 World.prototype.removeObject = function (objectId) {
                     var mesh = this.objects[objectId];
+                    if (mesh === undefined || mesh === null) {
+                        return;
+                    }
                     console.debug("Removing object", mesh.data);
                     this.remove(mesh);
                     delete this.objects[objectId];
