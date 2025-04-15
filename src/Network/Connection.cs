@@ -62,6 +62,7 @@ public sealed class Connection : PacketPipeReaderBase, IConnection
         this._logger = logger;
         this.Source = decryptionPipe?.Reader ?? this._duplexPipe!.Input;
         this._remoteEndPoint = this.SocketConnection?.Socket.RemoteEndPoint ?? new IPEndPoint(IPAddress.Any, 0);
+        this.LocalEndPoint = this.SocketConnection?.Socket.LocalEndPoint;
         this.OutputLock = new();
     }
 
@@ -76,6 +77,9 @@ public sealed class Connection : PacketPipeReaderBase, IConnection
 
     /// <inheritdoc />
     public EndPoint? EndPoint => this._remoteEndPoint;
+
+    /// <inheritdoc />
+    public EndPoint? LocalEndPoint { get; }
 
     /// <inheritdoc />
     public PipeWriter Output => this._outputWriter ??= new ExtendedPipeWriter(this._encryptionPipe?.Writer ?? this._duplexPipe!.Output, OutgoingBytesCounter);
@@ -193,8 +197,8 @@ public sealed class Connection : PacketPipeReaderBase, IConnection
     /// Reads the mu online packet by raising <see cref="PacketReceived" />.
     /// </summary>
     /// <param name="packet">The mu online packet.</param>
-    /// <returns>The async task.</returns>
-    protected override async ValueTask ReadPacketAsync(ReadOnlySequence<byte> packet)
+    /// <returns><see langword="true" />, if the flush was successful or not required.<see langword="false" />, if the pipe reader is completed and no longer reading data.</returns>
+    protected override async ValueTask<bool> ReadPacketAsync(ReadOnlySequence<byte> packet)
     {
         IncomingBytesCounter.Add(packet.Length);
 
@@ -205,6 +209,7 @@ public sealed class Connection : PacketPipeReaderBase, IConnection
         try
         {
             await this.PacketReceived.SafeInvokeAsync(packet).ConfigureAwait(false);
+            return true;
         }
         finally
         {

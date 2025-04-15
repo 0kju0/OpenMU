@@ -139,4 +139,119 @@ public enum UpdateVersion
     /// The version of the <see cref="FixAncientDiscriminatorsUpdatePlugIn"/>.
     /// </summary>
     FixAncientDiscriminators = 26,
+
+    /// <summary>
+    /// The version of the <see cref="FixDrainLifeSkillUpdate"/>.
+    /// </summary>
+    FixDrainLifeSkill = 27,
+
+    /// <summary>
+    /// The version of the <see cref="AddItemDropGroupForJewelsUpdate075"/>.
+    /// </summary>
+    AddItemDropGroupForJewels075 = 28,
+
+    /// <summary>
+    /// The version of the <see cref="AddItemDropGroupForJewelsUpdate095D"/>.
+    /// </summary>
+    AddItemDropGroupForJewels095d = 29,
+
+    /// <summary>
+    /// The version of the <see cref="AddItemDropGroupForJewelsUpdateSeason6"/>.
+    /// </summary>
+    AddItemDropGroupForJewelsSeason6 = 30,
+
+    /// <summary>
+    /// The version of the <see cref="FixMaxManaAndAbilityJewelryOptionsUpdateSeason6"/>.
+    /// </summary>
+    FixMaxManaAndAbilityJewelryOptionsSeason6 = 31,
+
+    /// <summary>
+    /// The version of the <see cref="FixWingsDmgRatesUpdatePlugIn075"/>.
+    /// </summary>
+    FixWingsDmgRatesPlugIn075 = 32,
+
+    /// <summary>
+    /// The version of the <see cref="FixWingsDmgRatesUpdatePlugIn095D"/>.
+    /// </summary>
+    FixWingsDmgRatesPlugIn095d = 33,
+
+    /// <summary>
+    /// The version of the <see cref="FixWingsDmgRatesUpdatePlugInSeason6"/>.
+    /// </summary>
+    FixWingsDmgRatesPlugInSeason6 = 34,
+
+    /// <summary>
+    /// The version of the <see cref="AddHarmonyOptionWeightsUpdateSeason6"/>.
+    /// </summary>
+    AddHarmonyOptionWeightsSeason6 = 35,
+
+    /// <summary>
+    /// The version of the <see cref="FixDuelArenaSafezoneMapUpdate"/>.
+    /// </summary>
+    FixDuelArenaSafezoneMap = 36,
+
+    /// <summary>
+    /// The version of the <see cref="FixAttackSpeedCalculationUpdate"/>.
+    /// </summary>
+    FixAttackSpeedCalculation = 37,
+
+    /// <summary>
+    /// The version of the <see cref="AddAreaSkillSettingsUpdatePlugIn"/>.
+    /// </summary>
+    AddAreaSkillSettings = 38,
+
+    /// <summary>
+    /// The version of the <see cref="FixItemRequirementsPlugIn"/>.
+    /// </summary>
+    FixItemRequirements = 39,
+
+    /// <summary>
+    /// The version of the <see cref="FixWingsDmgRatesUpdatePlugIn075"/>.
+    /// </summary>
+    FixWeaponRisePercentage075 = 40,
+
+    /// <summary>
+    /// The version of the <see cref="FixWingsDmgRatesUpdatePlugIn095D"/>.
+    /// </summary>
+    FixWeaponRisePercentage095d = 41,
+
+    /// <summary>
+    /// The version of the <see cref="FixWingsDmgRatesUpdatePlugInSeason6"/>.
+    /// </summary>
+    FixWeaponRisePercentageSeason6 = 42,
+
+    /// <summary>
+    /// The version of the <see cref="FixChaosMixesUpdatePlugIn075"/>.
+    /// </summary>
+    FixChaosMixes075 = 43,
+
+    /// <summary>
+    /// The version of the <see cref="FixChaosMixesPlugIn095D"/>.
+    /// </summary>
+    FixChaosMixes095d = 44,
+
+    /// <summary>
+    /// The version of the <see cref="FixChaosMixesPlugInSeason6"/>.
+    /// </summary>
+    FixChaosMixesSeason6 = 45,
+
+    /// <summary>
+    /// The version of the <see cref="FixItemOptionsAndAttackSpeedPlugIn075"/>.
+    /// </summary>
+    FixItemOptionsAndAttackSpeed075 = 46,
+
+    /// <summary>
+    /// The version of the <see cref="FixItemOptionsAndAttackSpeedPlugIn095D"/>.
+    /// </summary>
+    FixItemOptionsAndAttackSpeed095d = 47,
+
+    /// <summary>
+    /// The version of the <see cref="FixItemOptionsAndAttackSpeedPlugInSeason6"/>.
+    /// </summary>
+    FixItemOptionsAndAttackSpeedSeason6 = 48,
+
+    /// <summary>
+    /// The version of the <see cref="FixHorseFenrirOptionsSoulBarrierPlugIn"/>.
+    /// </summary>
+    FixHorseFenrirOptionsSoulBarrierPlugIn = 49,
 }

@@ -38,13 +38,17 @@ public class EntityDataContext : ExtendedTypeContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<AppearanceData>(o => o.Ignore(p => p.CharacterStatus)); // todo
         modelBuilder.Ignore<ConstantElement>();
         modelBuilder.Ignore<SimpleElement>();
         modelBuilder.Entity<Model.AttributeDefinition>();
         modelBuilder.Entity<ConnectServerDefinition>();
         modelBuilder.Entity<ChatServerDefinition>();
         modelBuilder.Entity<MiniGameRankingEntry>();
-        modelBuilder.Entity<GameServerDefinition>();
+        modelBuilder.Entity<GameServerDefinition>(entity =>
+        {
+            entity.Property(e => e.PvpEnabled).HasDefaultValue(true);
+        });
         modelBuilder.Entity<ConfigurationUpdate>();
         modelBuilder.Entity<ConfigurationUpdateState>();
         modelBuilder.Entity<SystemConfiguration>();

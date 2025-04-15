@@ -33,6 +33,11 @@ public interface IGameContext
     float ExperienceRate { get; }
 
     /// <summary>
+    /// Gets a value indicating whether PVP is enabled.
+    /// </summary>
+    bool PvpEnabled { get; }
+
+    /// <summary>
     /// Gets the repository provider. Used to retrieve data, e.g. from a database.
     /// </summary>
     IPersistenceContextProvider PersistenceContextProvider { get; }
@@ -98,7 +103,7 @@ public interface IGameContext
     DuelRoomManager DuelRoomManager { get; }
 
     /// <summary>
-    /// Gets the state of the active self defenses.
+    /// Gets the state of the active self defenses. The datetime holds the timestamp when self-defense ends.
     /// </summary>
     ConcurrentDictionary<(Player Attacker, Player Defender), DateTime> SelfDefenseState { get; }
 

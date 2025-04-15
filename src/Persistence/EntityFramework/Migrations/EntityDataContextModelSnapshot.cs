@@ -17,7 +17,7 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.6")
+                .HasAnnotation("ProductVersion", "9.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -34,6 +34,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<string>("EMail")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsTemplate")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsVaultExtended")
                         .HasColumnType("boolean");
@@ -115,6 +118,56 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.ToTable("AppearanceData", "data");
                 });
 
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AreaSkillSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<TimeSpan>("DelayBetweenHits")
+                        .HasColumnType("interval");
+
+                    b.Property<TimeSpan>("DelayPerOneDistance")
+                        .HasColumnType("interval");
+
+                    b.Property<float>("FrustumDistance")
+                        .HasColumnType("real");
+
+                    b.Property<float>("FrustumEndWidth")
+                        .HasColumnType("real");
+
+                    b.Property<float>("FrustumStartWidth")
+                        .HasColumnType("real");
+
+                    b.Property<float>("HitChancePerDistanceMultiplier")
+                        .HasColumnType("real");
+
+                    b.Property<int>("MaximumNumberOfHitsPerAttack")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaximumNumberOfHitsPerTarget")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MinimumNumberOfHitsPerTarget")
+                        .HasColumnType("integer");
+
+                    b.Property<float>("TargetAreaDiameter")
+                        .HasColumnType("real");
+
+                    b.Property<bool>("UseDeferredHits")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("UseFrustumFilter")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("UseTargetAreaFilter")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AreaSkillSettings", "config");
+                });
+
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AttributeDefinition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -130,6 +183,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<Guid?>("GameConfigurationId")
                         .HasColumnType("uuid");
 
+                    b.Property<float?>("MaximumValue")
+                        .HasColumnType("real");
+
                     b.HasKey("Id");
 
                     b.HasIndex("GameConfigurationId");
@@ -142,6 +198,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<int>("AggregateType")
+                        .HasColumnType("integer");
 
                     b.Property<Guid?>("CharacterClassId")
                         .HasColumnType("uuid");
@@ -271,8 +330,7 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<Guid?>("AccountId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("CharacterClassId")
-                        .IsRequired()
+                    b.Property<Guid>("CharacterClassId")
                         .HasColumnType("uuid");
 
                     b.Property<byte>("CharacterSlot")
@@ -295,6 +353,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
 
                     b.Property<Guid?>("InventoryId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsStoreOpened")
+                        .HasColumnType("boolean");
 
                     b.Property<byte[]>("KeyConfiguration")
                         .HasColumnType("bytea");
@@ -333,6 +394,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
 
                     b.Property<int>("StateRemainingSeconds")
                         .HasColumnType("integer");
+
+                    b.Property<string>("StoreName")
+                        .HasColumnType("text");
 
                     b.Property<int>("UsedFruitPoints")
                         .HasColumnType("integer");
@@ -971,6 +1035,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<int>("MaximumInventoryMoney")
                         .HasColumnType("integer");
 
+                    b.Property<byte>("MaximumItemOptionLevelDrop")
+                        .HasColumnType("smallint");
+
                     b.Property<int>("MaximumLetters")
                         .HasColumnType("integer");
 
@@ -1109,6 +1176,11 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<Guid?>("GameConfigurationId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("PvpEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<Guid?>("ServerConfigurationId")
                         .HasColumnType("uuid");
 
@@ -1230,6 +1302,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
 
                     b.Property<int>("SubOptionType")
                         .HasColumnType("integer");
+
+                    b.Property<byte>("Weight")
+                        .HasColumnType("smallint");
 
                     b.HasKey("Id");
 
@@ -2078,9 +2153,6 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CharacterId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("LetterDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -2178,6 +2250,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<string>("DisplayValueFormula")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("ExtendsDuration")
+                        .HasColumnType("boolean");
 
                     b.Property<byte>("MaximumLevel")
                         .HasColumnType("smallint");
@@ -2966,6 +3041,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<bool>("MultipleAllowed")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("NpcPriceDivisor")
+                        .HasColumnType("integer");
+
                     b.Property<byte>("ResultItemExcellentOptionChance")
                         .HasColumnType("smallint");
 
@@ -2990,6 +3068,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<int>("SuccessPercentageAdditionForExcellentItem")
                         .HasColumnType("integer");
 
+                    b.Property<int>("SuccessPercentageAdditionForGuardianItem")
+                        .HasColumnType("integer");
+
                     b.Property<int>("SuccessPercentageAdditionForLuck")
                         .HasColumnType("integer");
 
@@ -3005,6 +3086,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AreaSkillSettingsId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("AttackDamage")
@@ -3054,6 +3138,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AreaSkillSettingsId")
+                        .IsUnique();
 
                     b.HasIndex("ElementalModifierTargetId");
 
@@ -4607,6 +4694,11 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.Skill", b =>
                 {
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.AreaSkillSettings", "RawAreaSkillSettings")
+                        .WithOne()
+                        .HasForeignKey("MUnique.OpenMU.Persistence.EntityFramework.Model.Skill", "AreaSkillSettingsId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.AttributeDefinition", "RawElementalModifierTarget")
                         .WithMany()
                         .HasForeignKey("ElementalModifierTargetId");
@@ -4624,6 +4716,8 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                         .WithOne()
                         .HasForeignKey("MUnique.OpenMU.Persistence.EntityFramework.Model.Skill", "MasterDefinitionId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("RawAreaSkillSettings");
 
                     b.Navigation("RawElementalModifierTarget");
 

@@ -184,12 +184,20 @@ public class ItemPowerUpFactory : IItemPowerUpFactory
         attribute.ThrowNotInitializedProperty(attribute.BaseValueElement is null, nameof(attribute.BaseValueElement));
         attribute.ThrowNotInitializedProperty(attribute.TargetAttribute is null, nameof(attribute.TargetAttribute));
 
-        yield return new PowerUpWrapper(attribute.BaseValueElement, attribute.TargetAttribute, attributeHolder);
+        var levelBonusElmt = (attribute.BonusPerLevelTable?.BonusPerLevel ?? Enumerable.Empty<LevelBonus>())
+            .FirstOrDefault(bonus => bonus.Level == item.Level)?
+            .GetAdditionalValueElement(attribute.AggregateType);
 
-        var levelBonus = (attribute.BonusPerLevelTable?.BonusPerLevel ?? Enumerable.Empty<LevelBonus>()).FirstOrDefault(bonus => bonus.Level == item.Level);
-        if (levelBonus is not null)
+        if (levelBonusElmt is null)
         {
-            yield return new PowerUpWrapper(levelBonus.GetAdditionalValueElement(attribute.AggregateType), attribute.TargetAttribute, attributeHolder);
+            yield return new PowerUpWrapper(attribute.BaseValueElement, attribute.TargetAttribute, attributeHolder);
+        }
+        else
+        {
+            yield return new PowerUpWrapper(
+                new CombinedElement(attribute.BaseValueElement, levelBonusElmt),
+                attribute.TargetAttribute,
+                attributeHolder);
         }
     }
 
@@ -213,9 +221,15 @@ public class ItemPowerUpFactory : IItemPowerUpFactory
             var level = option.LevelType == LevelType.ItemLevel ? item.Level : optionLink.Level;
 
             var optionOfLevel = option.LevelDependentOptions?.FirstOrDefault(l => l.Level == level);
-            if (optionOfLevel is null && level > 1)
+            if (optionOfLevel is null && level > 1 && item.Definition!.Skill?.Number != 49) // Dinorant options are an exception
             {
                 this._logger.LogWarning("Item {item} (id {itemId}) has IncreasableItemOption ({option}, id {optionId}) with level {level}, but no definition in LevelDependentOptions.", item, item.GetId(), option, option.GetId(), level);
+                continue;
+            }
+
+            if (optionOfLevel?.RequiredItemLevel > item.Level)
+            {
+                // Some options (like harmony) although on the item can be inactive.
                 continue;
             }
 
@@ -253,15 +267,14 @@ public class ItemPowerUpFactory : IItemPowerUpFactory
         var baseDropLevel = item.Definition!.DropLevel;
         var ancientDropLevel = item.Definition!.CalculateDropLevel(true, false, 0);
 
-        if (InventoryConstants.IsDefenseItemSlot(item.ItemSlot))
+        if (InventoryConstants.IsDefenseItemSlot(item.ItemSlot) && !item.IsJewelry())
         {
             var baseDefense = (int)(item.Definition?.BasePowerUpAttributes.FirstOrDefault(a => a.TargetAttribute == Stats.DefenseBase)?.BaseValue ?? 0);
             var additionalDefense = (baseDefense * 12 / baseDropLevel) + (baseDropLevel / 5) + 4;
             yield return new PowerUpWrapper(new SimpleElement(additionalDefense, AggregateType.AddRaw), Stats.DefenseBase, attributeHolder);
-
             if (itemIsAncient)
             {
-                var ancientDefenseBonus = (baseDefense * 3 / ancientDropLevel) + (ancientDropLevel / 30) + 2;
+                var ancientDefenseBonus = 2 + ((baseDefense + additionalDefense) * 3 / ancientDropLevel) + (ancientDropLevel / 30);
                 yield return new PowerUpWrapper(new SimpleElement(ancientDefenseBonus, AggregateType.AddRaw), Stats.DefenseBase, attributeHolder);
             }
         }
@@ -274,7 +287,7 @@ public class ItemPowerUpFactory : IItemPowerUpFactory
             if (itemIsAncient)
             {
                 var baseDefense = (int)(item.Definition?.BasePowerUpAttributes.FirstOrDefault(a => a.TargetAttribute == Stats.DefenseBase)?.BaseValue ?? 0);
-                var ancientDefenseBonus = (baseDefense * 20 / ancientDropLevel) + 2;
+                var ancientDefenseBonus = 2 + ((baseDefense + item.Level) * 20 / ancientDropLevel);
                 yield return new PowerUpWrapper(new SimpleElement(ancientDefenseBonus, AggregateType.AddRaw), Stats.DefenseBase, attributeHolder);
             }
         }
@@ -294,23 +307,34 @@ public class ItemPowerUpFactory : IItemPowerUpFactory
 
         if (item.IsWizardryWeapon(out var staffRise))
         {
-            var additionalRise = ((int)staffRise * 25 / baseDropLevel) + 5;
+            var additionalRise = (((int)staffRise * 2 * 25 / baseDropLevel) + 5) / 2;
             yield return new PowerUpWrapper(new SimpleElement(additionalRise, AggregateType.AddRaw), Stats.StaffRise, attributeHolder);
             if (itemIsAncient)
             {
-                var ancientRiseBonus = 5 + (ancientDropLevel / 60);
+                var ancientRiseBonus = (2 + (ancientDropLevel / 60)) / 2;
                 yield return new PowerUpWrapper(new SimpleElement(ancientRiseBonus, AggregateType.AddRaw), Stats.StaffRise, attributeHolder);
             }
         }
 
         if (item.IsScepter(out var scepterRise))
         {
-            var additionalRise = ((int)scepterRise * 25 / baseDropLevel) + 5;
+            var additionalRise = (((int)scepterRise * 2 * 25 / baseDropLevel) + 5) / 2;
             yield return new PowerUpWrapper(new SimpleElement(additionalRise, AggregateType.AddRaw), Stats.ScepterRise, attributeHolder);
             if (itemIsAncient)
             {
-                var ancientRiseBonus = 5 + (ancientDropLevel / 60);
+                var ancientRiseBonus = (2 + (ancientDropLevel / 60)) / 2;
                 yield return new PowerUpWrapper(new SimpleElement(ancientRiseBonus, AggregateType.AddRaw), Stats.ScepterRise, attributeHolder);
+            }
+        }
+
+        if (item.IsBook(out var curseRise))
+        {
+            var additionalRise = (((int)curseRise * 2 * 25 / baseDropLevel) + 5) / 2;
+            yield return new PowerUpWrapper(new SimpleElement(additionalRise, AggregateType.AddRaw), Stats.BookRise, attributeHolder);
+            if (itemIsAncient)
+            {
+                var ancientRiseBonus = (2 + (ancientDropLevel / 60)) / 2;
+                yield return new PowerUpWrapper(new SimpleElement(ancientRiseBonus, AggregateType.AddRaw), Stats.BookRise, attributeHolder);
             }
         }
     }

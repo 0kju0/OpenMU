@@ -66,6 +66,7 @@ public class GameContext : AsyncDisposable, IGameContext
     /// <param name="loggerFactory">The logger factory.</param>
     /// <param name="plugInManager">The plug in manager.</param>
     /// <param name="dropGenerator">The drop generator.</param>
+    /// <param name="changeMediator">The cange mediator.</param>
     public GameContext(GameConfiguration configuration, IPersistenceContextProvider persistenceContextProvider, IMapInitializer mapInitializer, ILoggerFactory loggerFactory, PlugInManager plugInManager, IDropGenerator dropGenerator, IConfigurationChangeMediator changeMediator)
     {
         try
@@ -109,6 +110,9 @@ public class GameContext : AsyncDisposable, IGameContext
 
     /// <inheritdoc />
     public virtual float ExperienceRate => this.Configuration.ExperienceRate;
+
+    /// <inheritdoc />
+    public virtual bool PvpEnabled { get; }
 
     /// <inheritdoc/>
     public GameConfiguration Configuration { get; }
